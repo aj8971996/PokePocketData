@@ -1,9 +1,20 @@
 # backend/app/database/config.py
-from typing import Optional
 import os
-from dotenv import load_dotenv
+import sys
+from pathlib import Path
 
-load_dotenv()
+# Add the project root directory to Python path
+root_dir = Path(__file__).resolve().parent.parent.parent
+sys.path.append(str(root_dir))
+
+try:
+    from dotenv import load_dotenv
+    # Load environment variables from .env file
+    load_dotenv(Path(root_dir) / '.env')
+except ImportError:
+    raise ImportError(
+        "python-dotenv is not installed. Please install it using: pip install python-dotenv"
+    )
 
 class DatabaseConfig:
     USER: str = os.getenv("DB_USER", "root")
