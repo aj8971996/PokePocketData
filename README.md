@@ -10,6 +10,8 @@ A comprehensive Angular application for managing and analyzing Pokémon data. Th
 - Responsive design for mobile and desktop platforms
 - Real-time data updates and synchronization
 - Implementation of proper database modeling and relationships
+- RESTful API with FastAPI
+- Type-safe data validation using Pydantic
 
 ## Technical Stack
 
@@ -26,6 +28,7 @@ A comprehensive Angular application for managing and analyzing Pokémon data. Th
 - SQLAlchemy (ORM)
 - Alembic (Database Migrations)
 - Python-dotenv (Environment Management)
+- Pydantic (Data Validation)
 - Additional backend libraries listed in requirements.txt
 
 ### Development Tools
@@ -135,8 +138,11 @@ PokePocketData/
 │   │   │   └── models.py        # SQLAlchemy models
 │   │   ├── models/
 │   │   │   ├── __init__.py
-│   │   │   └── ppdd_models.py   # Pydantic models for API
+│   │   │   ├── ppdd_models.py   # Pydantic models for validation
+│   │   │   └── schemas.py       # Pydantic schemas for API
 │   │   ├── routers/
+│   │   │   ├── __init__.py
+│   │   │   └── ppdd_router.py   # API endpoints
 │   │   ├── services/
 │   │   └── utils/
 │   ├── .env                     # Environment variables
@@ -145,25 +151,45 @@ PokePocketData/
     └── [Angular project files]
 ```
 
-## Database Models
-The project implements two types of models:
+## API Implementation
+The project implements a comprehensive API with:
 1. SQLAlchemy Models (`app/database/models.py`):
-   - Define database table structures
-   - Handle relationships and constraints
+   - Define database table structures and relationships
+   - Implement database constraints and validations
    - Manage database operations
 
 2. Pydantic Models (`app/models/ppdd_models.py`):
-   - Handle API request/response validation
-   - Manage data serialization
-   - Implement business logic validation
+   - Handle data validation
+   - Implement business logic constraints
+   - Define type-safe data structures
+
+3. API Schemas (`app/models/schemas.py`):
+   - Define request/response models
+   - Handle data serialization/deserialization
+   - Implement API-specific validations
+
+4. API Endpoints (`app/routers/ppdd_router.py`):
+   - Implement CRUD operations for all resources
+   - Handle data validation and transformation
+   - Implement proper error handling
+
+## API Features
+- Full CRUD operations for cards, decks, and game records
+- Advanced filtering and pagination
+- Proper error handling and validation
+- Type-safe request/response handling
+- Transaction management
+- Health check endpoint
 
 ## Development Status
-🚧 The project is currently in the initial setup phase, with the following completed:
+🚧 The project is currently in active development with the following completed:
 - Basic project structure
 - Database models defined (both SQLAlchemy and Pydantic)
-- Database connection configuration with environment variables
+- Database connection configuration
 - Migration system setup with Alembic
 - Initial API user setup
+- API router implementation
+- Request/response schemas defined
 
 ## Local Development Notes
 - This project is designed for local development and learning purposes
@@ -188,6 +214,11 @@ As this is a personal development project, contributions are currently not being
    - Remove migration versions directory
    - Reinitialize: `alembic init migrations`
    - Create new migration: `alembic revision --autogenerate`
+
+3. API Issues:
+   - Check FastAPI logs for detailed error messages
+   - Verify request payload matches schema definitions
+   - Ensure database connection is active
 
 ---
 **Note:** This README will be updated as the project evolves and new features are implemented.
