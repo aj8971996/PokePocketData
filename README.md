@@ -1,4 +1,4 @@
-# PokePocketData
+# PokéPocketData
 
 ## Description
 A comprehensive Angular application for managing and analyzing Pokémon data. This project is developed for personal learning and practice purposes, designed to run locally. It aims to provide users with an intuitive interface to explore, analyze, and manage Pokémon information while implementing best practices in full-stack development.
