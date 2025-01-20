@@ -28,11 +28,11 @@ A comprehensive Angular application for managing and analyzing Pokémon data. Th
 - Additional development tools will be listed as needed
 
 ## Prerequisites
-- Node.js (Latest LTS version recommended)
-- npm (Comes with Node.js)
+- Node.js 
+- npm
 - Angular CLI
 - Python 3.8+ 
-- pip (Python package manager)
+- pip
 - Git
 
 ## Installation
@@ -71,13 +71,6 @@ Navigate to `http://localhost:4200/`. The application will automatically reload 
 
 ## Contributing
 Contributions are welcome! Please feel free to submit a Pull Request.
-
-## License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-- Data sources will be listed here
-- Special thanks to contributors (to be added)
 
 ---
 **Note:** This README will be updated as the project evolves and new features are implemented.
