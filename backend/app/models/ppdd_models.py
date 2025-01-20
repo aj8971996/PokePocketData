@@ -72,7 +72,12 @@ class TrainerCard(BaseModel):
     card_ref: UUID  # References card_id from Card
     abilities: List[SupportAbility]
 
-# Deck Model
+# Deck Models
+class DeckCard(BaseModel):
+    """Model for cards in a deck"""
+    deck_id: UUID
+    card_id: UUID
+
 class Deck(BaseModel):
     """Model for a deck of cards"""
     deck_id: UUID
