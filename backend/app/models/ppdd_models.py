@@ -32,7 +32,7 @@ class Card(BaseModel):
     collection_number: str
     rarity: Literal['1 Diamond', '2 Diamond', '3 Diamond', 
                     '4 Diamond', '1 Star', '2 Star', '3 Star', 
-                    'Crown']
+                    'Crown', 'Promo']
     image_url: Optional[str]
 
     @root_validator
@@ -56,11 +56,15 @@ class PokemonCard(BaseModel):
     """Model for Pokemon cards"""
     card_ref: UUID  # References card_id from Card
     hp: int = Field(gt=0)  # HP must be positive
-    type: str  # Consider making this a Literal with valid Pokémon types
+    type: Literal['Fire', 'Water', 'Grass', 'Metal',
+                  'Electric', 'Colorless', 'Dragon',
+                  'Fighting', 'Psychic', 'Darkness']
     stage: Literal['Basic', 'Stage 1', 'Stage 2']
     evolves_from: Optional[str]
     abilities: List[PokemonAbility]
-    weakness: Optional[dict]
+    weakness: Literal['Fire', 'Water', 'Grass', 'Metal',
+                  'Electric', 'Colorless', 'Dragon',
+                  'Fighting', 'Psychic', 'Darkness', 'None']
     retreat_cost: int = Field(ge=0)  # Retreat cost can't be negative
 
 class TrainerCard(BaseModel):
