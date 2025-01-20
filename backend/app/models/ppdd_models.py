@@ -27,12 +27,30 @@ class Card(BaseModel):
     """Base model for all cards"""
     card_id: UUID
     name: str
-    set_name: str
+    set_name: Literal['Genetic Apex (A1)', 'Mythical Island (A1a)']
+    pack_name: Literal['(A1) Charizard', '(A1) Pikachu', '(A1) Mewtwo', '(A1a) Mew']
     collection_number: str
     rarity: Literal['1 Diamond', '2 Diamond', '3 Diamond', 
                     '4 Diamond', '1 Star', '2 Star', '3 Star', 
                     'Crown']
     image_url: Optional[str]
+
+    @root_validator
+    def validate_set_and_pack_names(cls, values):
+        if 'set_name' in values and 'pack_name' in values:
+            set_name = values['set_name']
+            pack_name = values['pack_name']
+            
+            # Check if A1a or A1 for set_name
+            is_a1a = 'A1a' in set_name
+            
+            # Check if pack_name matches the set designation
+            if is_a1a and '(A1a)' not in pack_name:
+                raise ValueError('Pack must be from A1a set if set_name is Mythical Island (A1a)')
+            elif not is_a1a and '(A1)' not in pack_name:
+                raise ValueError('Pack must be from A1 set if set_name is Genetic Apex (A1)')
+        
+        return values
 
 class PokemonCard(BaseModel):
     """Model for Pokemon cards"""
