@@ -186,8 +186,6 @@ PokePocketData/
 - 🚧 Advanced data visualization
 - 🚧 Comprehensive test coverage
 
-[Rest of the sections remain the same...]
-
 ## Troubleshooting
 
 ### Common Issues
