@@ -1,28 +1,49 @@
+# app/routers/ppdd_router.py
+import sys
+from pathlib import Path
+import logging
 from fastapi import APIRouter, HTTPException, Depends, Query, status
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from uuid import UUID
 from datetime import datetime
-import logging
 
-from ..database import get_db
-from ..models.pydantic_models import (
-    Card, PokemonCard, TrainerCard, Deck, GameDetails, GameRecord,
-    DeckCard, PokemonAbility, SupportAbility
-)
-from ..models.schemas import (
-    CardCreate, CardUpdate, PokemonCardCreate, TrainerCardCreate,
-    DeckCreate, DeckUpdate, GameDetailsCreate, GameRecordCreate
-)
+# Get the absolute path of the current file's directory
+current_dir = Path(__file__).resolve().parent
+project_root = current_dir.parent.parent
+sys.path.append(str(project_root))
+sys.path.append(str(project_root / 'backend'))
 
-# Set up logger
-logger = logging.getLogger(__name__)
+from app.database import get_db
+from app.database.sql_models import (
+    Card as SQLCard,
+    PokemonCard as SQLPokemonCard,
+    TrainerCard as SQLTrainerCard,
+    Deck as SQLDeck,
+    GameDetails as SQLGameDetails,
+    GameRecord as SQLGameRecord,
+    DeckCard as SQLDeckCard,
+    PokemonAbility as SQLPokemonAbility,
+    SupportAbility as SQLSupportAbility
+)
+from app.models.pydantic_models import (
+    # Create/Update Models
+    CardCreate, CardUpdate, 
+    PokemonCardCreate, TrainerCardCreate,
+    DeckCreate, DeckUpdate, 
+    GameDetailsCreate, GameRecordCreate,
+    # Response Models
+    CardResponse, PokemonCardResponse, TrainerCardResponse,
+    DeckResponse, GameDetailsResponse, GameRecordResponse
+)
 
 # Define the router
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
-@router.post("/cards/pokemon", response_model=PokemonCard)
+# Card Endpoints
+@router.post("/cards/pokemon", response_model=PokemonCardResponse)
 async def create_pokemon_card(
     card_data: PokemonCardCreate,
     db: Session = Depends(get_db)
@@ -31,7 +52,7 @@ async def create_pokemon_card(
     logger.info(f"Attempting to create Pokemon card: {card_data.name}")
     try:
         # Create base card first
-        new_card = Card(
+        new_card = SQLCard(
             name=card_data.name,
             set_name=card_data.set_name,
             pack_name=card_data.pack_name,
@@ -44,7 +65,7 @@ async def create_pokemon_card(
         logger.debug(f"Base card created with ID: {new_card.card_id}")
 
         # Create Pokemon card
-        pokemon_card = PokemonCard(
+        pokemon_card = SQLPokemonCard(
             card_ref=new_card.card_id,
             hp=card_data.hp,
             type=card_data.type,
@@ -58,7 +79,7 @@ async def create_pokemon_card(
 
         # Add abilities if provided
         for ability_data in card_data.abilities:
-            ability = PokemonAbility(
+            ability = SQLPokemonAbility(
                 pokemon_card_ref=pokemon_card.card_ref,
                 ability_ref=ability_data.ability_ref,
                 energy_cost=ability_data.energy_cost,
@@ -80,21 +101,61 @@ async def create_pokemon_card(
         await db.rollback()
         raise HTTPException(status_code=500, detail="Internal server error")
 
-@router.get("/cards/{card_id}", response_model=Card)
+@router.post("/cards/trainer", response_model=TrainerCardResponse)
+async def create_trainer_card(
+    card_data: TrainerCardCreate,
+    db: Session = Depends(get_db)
+):
+    """Create a new Trainer card"""
+    logger.info(f"Attempting to create Trainer card: {card_data.name}")
+    try:
+        new_card = SQLCard(
+            name=card_data.name,
+            set_name=card_data.set_name,
+            pack_name=card_data.pack_name,
+            collection_number=card_data.collection_number,
+            rarity=card_data.rarity,
+            image_url=card_data.image_url
+        )
+        db.add(new_card)
+        await db.flush()
+
+        trainer_card = SQLTrainerCard(
+            card_ref=new_card.card_id
+        )
+        db.add(trainer_card)
+        
+        for ability_data in card_data.abilities:
+            ability = SQLSupportAbility(
+                trainer_card_ref=trainer_card.card_ref,
+                ability_ref=ability_data.ability_ref,
+                support_type=ability_data.support_type,
+                effect_description=ability_data.effect_description
+            )
+            db.add(ability)
+
+        await db.commit()
+        return trainer_card
+    except SQLAlchemyError as e:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/cards/{card_id}", response_model=CardResponse)
 async def get_card(
     card_id: UUID,
     db: Session = Depends(get_db)
 ):
     """Get a specific card by ID"""
-    logger.info(f"Attempting to retrieve card with ID: {card_id}")
-    card = await db.query(Card).filter(Card.card_id == card_id).first()
-    if not card:
-        logger.warning(f"Card not found with ID: {card_id}")
-        raise HTTPException(status_code=404, detail="Card not found")
-    logger.debug(f"Successfully retrieved card: {card.name}")
-    return card
+    try:
+        card = await db.query(SQLCard).filter(SQLCard.card_id == card_id).first()
+        if not card:
+            raise HTTPException(status_code=404, detail="Card not found")
+        return card
+    except SQLAlchemyError as e:
+        logger.error(f"Database error while fetching card: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/cards/", response_model=List[Card])
+@router.get("/cards/", response_model=List[CardResponse])
 async def list_cards(
     set_name: Optional[str] = None,
     pack_name: Optional[str] = None,
@@ -104,19 +165,16 @@ async def list_cards(
     db: Session = Depends(get_db)
 ):
     """List cards with optional filtering"""
-    logger.info("Fetching cards with filters")
-    logger.debug(f"Filters - set_name: {set_name}, pack_name: {pack_name}, rarity: {rarity}, skip: {skip}, limit: {limit}")
-    
-    query = db.query(Card)
-    
-    if set_name:
-        query = query.filter(Card.set_name == set_name)
-    if pack_name:
-        query = query.filter(Card.pack_name == pack_name)
-    if rarity:
-        query = query.filter(Card.rarity == rarity)
-    
     try:
+        query = db.query(SQLCard)
+        
+        if set_name:
+            query = query.filter(SQLCard.set_name == set_name)
+        if pack_name:
+            query = query.filter(SQLCard.pack_name == pack_name)
+        if rarity:
+            query = query.filter(SQLCard.rarity == rarity)
+        
         cards = await query.offset(skip).limit(limit).all()
         logger.debug(f"Retrieved {len(cards)} cards")
         return cards
@@ -124,7 +182,8 @@ async def list_cards(
         logger.error(f"Database error while fetching cards: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.post("/decks/", response_model=Deck)
+# Deck Endpoints
+@router.post("/decks/", response_model=DeckResponse)
 async def create_deck(
     deck_data: DeckCreate,
     db: Session = Depends(get_db)
@@ -132,8 +191,7 @@ async def create_deck(
     """Create a new deck"""
     logger.info(f"Creating new deck: {deck_data.name}")
     try:
-        # Create deck
-        new_deck = Deck(
+        new_deck = SQLDeck(
             name=deck_data.name,
             owner_id=deck_data.owner_id,
             description=deck_data.description,
@@ -141,94 +199,73 @@ async def create_deck(
         )
         db.add(new_deck)
         await db.flush()
-        logger.debug(f"Created base deck with ID: {new_deck.deck_id}")
 
-        # Add cards to deck
         for card_id in deck_data.cards:
-            deck_card = DeckCard(
+            deck_card = SQLDeckCard(
                 deck_id=new_deck.deck_id,
                 card_id=card_id
             )
             db.add(deck_card)
-        logger.debug(f"Added {len(deck_data.cards)} cards to deck")
 
         await db.commit()
-        logger.info(f"Successfully created deck: {deck_data.name}")
         return new_deck
     except SQLAlchemyError as e:
-        logger.error(f"Database error while creating deck: {str(e)}")
         await db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/decks/{deck_id}", response_model=Deck)
+@router.get("/decks/{deck_id}", response_model=DeckResponse)
 async def get_deck(
     deck_id: UUID,
     db: Session = Depends(get_db)
 ):
     """Get a specific deck by ID"""
-    logger.info(f"Fetching deck with ID: {deck_id}")
-    deck = await db.query(Deck).filter(Deck.deck_id == deck_id).first()
+    deck = await db.query(SQLDeck).filter(SQLDeck.deck_id == deck_id).first()
     if not deck:
-        logger.warning(f"Deck not found with ID: {deck_id}")
         raise HTTPException(status_code=404, detail="Deck not found")
-    logger.debug(f"Successfully retrieved deck: {deck.name}")
     return deck
 
-@router.put("/decks/{deck_id}", response_model=Deck)
+@router.put("/decks/{deck_id}", response_model=DeckResponse)
 async def update_deck(
     deck_id: UUID,
     deck_data: DeckUpdate,
     db: Session = Depends(get_db)
 ):
     """Update a specific deck"""
-    logger.info(f"Updating deck with ID: {deck_id}")
     try:
-        deck = await db.query(Deck).filter(Deck.deck_id == deck_id).first()
+        deck = await db.query(SQLDeck).filter(SQLDeck.deck_id == deck_id).first()
         if not deck:
-            logger.warning(f"Deck not found with ID: {deck_id}")
             raise HTTPException(status_code=404, detail="Deck not found")
 
         # Update deck attributes
         for key, value in deck_data.dict(exclude_unset=True).items():
             setattr(deck, key, value)
-        logger.debug("Updated deck attributes")
 
-        # Update cards if provided
         if deck_data.cards:
-            logger.debug(f"Removing existing cards from deck {deck_id}")
-            await db.query(DeckCard).filter(DeckCard.deck_id == deck_id).delete()
-            
-            # Add new cards
+            await db.query(SQLDeckCard).filter(SQLDeckCard.deck_id == deck_id).delete()
             for card_id in deck_data.cards:
-                deck_card = DeckCard(deck_id=deck_id, card_id=card_id)
+                deck_card = SQLDeckCard(deck_id=deck_id, card_id=card_id)
                 db.add(deck_card)
-            logger.debug(f"Added {len(deck_data.cards)} new cards to deck")
 
         await db.commit()
-        logger.info(f"Successfully updated deck: {deck.name}")
         return deck
     except SQLAlchemyError as e:
-        logger.error(f"Database error while updating deck: {str(e)}")
         await db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.post("/games/", response_model=GameRecord)
+# Game Record Endpoints
+@router.post("/games/", response_model=GameRecordResponse)
 async def create_game_record(
     game_data: GameDetailsCreate,
     game_record_data: GameRecordCreate,
     db: Session = Depends(get_db)
 ):
     """Create a new game record with details"""
-    logger.info(f"Creating new game record for player: {game_record_data.player_id}")
     try:
-        # Create game details
-        game_details = GameDetails(**game_data.dict())
+        game_details = SQLGameDetails(**game_data.dict())
         db.add(game_details)
         await db.flush()
-        logger.debug(f"Created game details with ID: {game_details.game_details_id}")
 
-        # Create game record
-        game_record = GameRecord(
+        game_record = SQLGameRecord(
             player_id=game_record_data.player_id,
             game_details_ref=game_details.game_details_id,
             outcome=game_record_data.outcome,
@@ -237,10 +274,8 @@ async def create_game_record(
         db.add(game_record)
         
         await db.commit()
-        logger.info(f"Successfully created game record with outcome: {game_record_data.outcome}")
         return game_record
     except SQLAlchemyError as e:
-        logger.error(f"Database error while creating game record: {str(e)}")
         await db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -248,17 +283,16 @@ async def create_game_record(
 async def get_player_statistics(
     player_id: UUID,
     db: Session = Depends(get_db)
-):
+) -> Dict[str, Any]:
     """Get player statistics including win/loss ratio"""
-    logger.info(f"Fetching statistics for player: {player_id}")
     try:
         stats = await db.query(
-            GameRecord.outcome,
-            db.func.count(GameRecord.outcome)
+            SQLGameRecord.outcome,
+            db.func.count(SQLGameRecord.outcome)
         ).filter(
-            GameRecord.player_id == player_id
+            SQLGameRecord.player_id == player_id
         ).group_by(
-            GameRecord.outcome
+            SQLGameRecord.outcome
         ).all()
 
         wins = next((count for outcome, count in stats if outcome == 'win'), 0)
@@ -268,7 +302,6 @@ async def get_player_statistics(
         total_games = wins + losses + draws
         win_rate = (wins / total_games * 100) if total_games > 0 else 0
 
-        logger.debug(f"Statistics calculated - Total: {total_games}, Wins: {wins}, Losses: {losses}, Draws: {draws}")
         return {
             "total_games": total_games,
             "wins": wins,
@@ -277,20 +310,15 @@ async def get_player_statistics(
             "win_rate": round(win_rate, 2)
         }
     except SQLAlchemyError as e:
-        logger.error(f"Database error while fetching player statistics: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/health")
 async def health_check(db: Session = Depends(get_db)):
     """Health check endpoint"""
-    logger.debug("Performing health check")
     try:
-        # Test database connection
         await db.execute("SELECT 1")
-        logger.info("Health check successful")
         return {"status": "healthy", "database": "connected"}
     except Exception as e:
-        logger.error(f"Health check failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Database connection failed"

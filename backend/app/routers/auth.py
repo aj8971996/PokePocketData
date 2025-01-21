@@ -9,7 +9,7 @@ from typing import Optional
 # Get the absolute path of the current file's directory
 current_dir = Path(__file__).resolve().parent
 
-# Get the project root directory (two levels up from current file)
+# Get the project root directory (three levels up from current file)
 project_root = current_dir.parent.parent
 
 # Add paths to Python path
@@ -23,9 +23,7 @@ from google.oauth2 import id_token
 from google.auth.transport import requests
 import jwt
 
-# Import our database and models
-from app.database.base import get_db
-from app.database.sql_models import User
+from app.database import get_db, User
 from app.models.pydantic_models import UserCreate, UserResponse, TokenResponse
 
 # Configure logging

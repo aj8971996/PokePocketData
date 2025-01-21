@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean, JSON, Enum, TypeDecorator
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean, JSON, Enum
 from sqlalchemy.types import CHAR, TypeDecorator
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -6,28 +6,29 @@ import uuid
 from .base import Base
 import enum
 
+# ===============================
+# Custom Types
+# ===============================
+
 class GUID(TypeDecorator):
-    """Platform-independent GUID type.
-    Uses MySQL's CHAR(36) as the base type.
-    """
+    """Platform-independent GUID type using MySQL's CHAR(36)"""
     impl = CHAR(36)
     cache_ok = True
 
     def process_bind_param(self, value, dialect):
         if value is None:
             return value
-        elif dialect.name == 'mysql':
-            return str(value)
-        else:
-            return str(value)
+        return str(value)
 
     def process_result_value(self, value, dialect):
         if value is None:
             return value
-        else:
-            return str(value)
+        return str(value)
 
-# Enum classes for constraints
+# ===============================
+# Enums
+# ===============================
+
 class PokemonType(str, enum.Enum):
     FIRE = 'Fire'
     WATER = 'Water'
@@ -67,7 +68,19 @@ class Stage(str, enum.Enum):
     STAGE_1 = 'Stage 1'
     STAGE_2 = 'Stage 2'
 
-# Base Models
+class SupportType(str, enum.Enum):
+    TRAINER = 'Trainer'
+    ITEM = 'Item'
+
+class GameOutcome(str, enum.Enum):
+    WIN = 'win'
+    LOSS = 'loss'
+    DRAW = 'draw'
+
+# ===============================
+# Ability Models
+# ===============================
+
 class Ability(Base):
     __tablename__ = 'abilities'
 
@@ -84,7 +97,6 @@ class PokemonAbility(Base):
     ability_effect = Column(String(500), nullable=False)
     damage = Column(Integer)
 
-    # Relationships
     ability = relationship("Ability")
     pokemon_card = relationship("PokemonCard", back_populates="abilities")
 
@@ -94,14 +106,16 @@ class SupportAbility(Base):
     ability_id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     trainer_card_ref = Column(GUID(), ForeignKey('trainer_cards.card_ref'))
     ability_ref = Column(GUID(), ForeignKey('abilities.ability_id'))
-    support_type = Column(Enum('Trainer', 'Item'), nullable=False)
+    support_type = Column(Enum(SupportType), nullable=False)
     effect_description = Column(String(500), nullable=False)
 
-    # Relationships
     ability = relationship("Ability")
     trainer_card = relationship("TrainerCard", back_populates="abilities")
 
+# ===============================
 # Card Models
+# ===============================
+
 class Card(Base):
     __tablename__ = "cards"
     
@@ -113,7 +127,6 @@ class Card(Base):
     rarity = Column(Enum(Rarity), nullable=False)
     image_url = Column(String(255))
     
-    # Relationships
     pokemon_card = relationship("PokemonCard", back_populates="card", uselist=False)
     trainer_card = relationship("TrainerCard", back_populates="card", uselist=False)
 
@@ -128,7 +141,6 @@ class PokemonCard(Base):
     weakness = Column(Enum(PokemonType), nullable=False)
     retreat_cost = Column(Integer, nullable=False)
     
-    # Relationships
     card = relationship("Card", back_populates="pokemon_card")
     abilities = relationship("PokemonAbility", back_populates="pokemon_card")
 
@@ -137,11 +149,13 @@ class TrainerCard(Base):
 
     card_ref = Column(GUID(), ForeignKey('cards.card_id'), primary_key=True)
     
-    # Relationships
     card = relationship("Card", back_populates="trainer_card")
     abilities = relationship("SupportAbility", back_populates="trainer_card")
 
+# ===============================
 # Deck Models
+# ===============================
+
 class Deck(Base):
     __tablename__ = "decks"
 
@@ -149,12 +163,12 @@ class Deck(Base):
     name = Column(String(255), nullable=False)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
-    owner_id = Column(GUID(), nullable=False)
+    owner_id = Column(GUID(), ForeignKey('users.user_id'), nullable=False)  # Added ForeignKey
     description = Column(String(500))
     is_active = Column(Boolean, nullable=False, default=True)
 
-    # Relationships
     deck_cards = relationship("DeckCard", back_populates="deck")
+    owner = relationship("User", back_populates="decks")  # Added relationship
 
 class DeckCard(Base):
     __tablename__ = "deck_cards"
@@ -162,11 +176,13 @@ class DeckCard(Base):
     deck_id = Column(GUID(), ForeignKey('decks.deck_id'), primary_key=True)
     card_id = Column(GUID(), ForeignKey('cards.card_id'), primary_key=True)
     
-    # Relationships
     deck = relationship("Deck", back_populates="deck_cards")
     card = relationship("Card")
 
+# ===============================
 # Game Models
+# ===============================
+
 class GameDetails(Base):
     __tablename__ = "game_details"
 
@@ -180,7 +196,6 @@ class GameDetails(Base):
     opponent_deck_type = Column(String(255))
     notes = Column(String(1000))
 
-    # Relationships
     game_record = relationship("GameRecord", back_populates="game_details", uselist=False)
     deck = relationship("Deck")
 
@@ -188,13 +203,17 @@ class GameRecord(Base):
     __tablename__ = "game_records"
 
     game_record_id = Column(GUID(), primary_key=True, default=uuid.uuid4)
-    player_id = Column(GUID(), nullable=False)
+    player_id = Column(GUID(), ForeignKey('users.user_id'), nullable=False)  # Added ForeignKey
     game_details_ref = Column(GUID(), ForeignKey('game_details.game_details_id'))
-    outcome = Column(Enum('win', 'loss', 'draw'), nullable=False)
+    outcome = Column(Enum(GameOutcome), nullable=False)
     ranking_change = Column(Integer)
 
-    # Relationships
     game_details = relationship("GameDetails", back_populates="game_record")
+    player = relationship("User", back_populates="game_records")  # Added relationship
+
+# ===============================
+# User Model
+# ===============================
 
 class User(Base):
     __tablename__ = "users"
@@ -202,8 +221,12 @@ class User(Base):
     user_id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     email = Column(String(255), unique=True, nullable=False)
     full_name = Column(String(255), nullable=False)
-    picture = Column(String(255), nullable=True)
+    picture = Column(String(255))
     google_id = Column(String(255), unique=True, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     last_login = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationships
+    decks = relationship("Deck", back_populates="owner")
+    game_records = relationship("GameRecord", back_populates="player")
