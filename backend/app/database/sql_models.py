@@ -1,10 +1,31 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean, JSON, Enum
-from sqlalchemy.dialects.mysql import UUID
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean, JSON, Enum, TypeDecorator
+from sqlalchemy.types import CHAR, TypeDecorator
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import uuid
 from .base import Base
 import enum
+
+class GUID(TypeDecorator):
+    """Platform-independent GUID type.
+    Uses MySQL's CHAR(36) as the base type.
+    """
+    impl = CHAR(36)
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return value
+        elif dialect.name == 'mysql':
+            return str(value)
+        else:
+            return str(value)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return value
+        else:
+            return str(value)
 
 # Enum classes for constraints
 class PokemonType(str, enum.Enum):
@@ -50,15 +71,15 @@ class Stage(str, enum.Enum):
 class Ability(Base):
     __tablename__ = 'abilities'
 
-    ability_id = Column(UUID(binary=False), primary_key=True, default=uuid.uuid4)
+    ability_id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     name = Column(String(250), nullable=False)
 
 class PokemonAbility(Base):
     __tablename__ = 'pokemon_abilities'
 
-    ability_id = Column(UUID(binary=False), primary_key=True, default=uuid.uuid4)
-    pokemon_card_ref = Column(UUID(binary=False), ForeignKey('pokemon_cards.card_ref'))
-    ability_ref = Column(UUID(binary=False), ForeignKey('abilities.ability_id'))
+    ability_id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    pokemon_card_ref = Column(GUID(), ForeignKey('pokemon_cards.card_ref'))
+    ability_ref = Column(GUID(), ForeignKey('abilities.ability_id'))
     energy_cost = Column(JSON, nullable=False)
     ability_effect = Column(String(500), nullable=False)
     damage = Column(Integer)
@@ -70,9 +91,9 @@ class PokemonAbility(Base):
 class SupportAbility(Base):
     __tablename__ = 'support_abilities'
 
-    ability_id = Column(UUID(binary=False), primary_key=True, default=uuid.uuid4)
-    trainer_card_ref = Column(UUID(binary=False), ForeignKey('trainer_cards.card_ref'))
-    ability_ref = Column(UUID(binary=False), ForeignKey('abilities.ability_id'))
+    ability_id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    trainer_card_ref = Column(GUID(), ForeignKey('trainer_cards.card_ref'))
+    ability_ref = Column(GUID(), ForeignKey('abilities.ability_id'))
     support_type = Column(Enum('Trainer', 'Item'), nullable=False)
     effect_description = Column(String(500), nullable=False)
 
@@ -84,7 +105,7 @@ class SupportAbility(Base):
 class Card(Base):
     __tablename__ = "cards"
     
-    card_id = Column(UUID(binary=False), primary_key=True, default=uuid.uuid4)
+    card_id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     name = Column(String(255), nullable=False)
     set_name = Column(Enum(SetName), nullable=False)
     pack_name = Column(Enum(PackName), nullable=False)
@@ -99,7 +120,7 @@ class Card(Base):
 class PokemonCard(Base):
     __tablename__ = "pokemon_cards"
     
-    card_ref = Column(UUID(binary=False), ForeignKey('cards.card_id'), primary_key=True)
+    card_ref = Column(GUID(), ForeignKey('cards.card_id'), primary_key=True)
     hp = Column(Integer, nullable=False)
     type = Column(Enum(PokemonType), nullable=False)
     stage = Column(Enum(Stage), nullable=False)
@@ -114,7 +135,7 @@ class PokemonCard(Base):
 class TrainerCard(Base):
     __tablename__ = "trainer_cards"
 
-    card_ref = Column(UUID(binary=False), ForeignKey('cards.card_id'), primary_key=True)
+    card_ref = Column(GUID(), ForeignKey('cards.card_id'), primary_key=True)
     
     # Relationships
     card = relationship("Card", back_populates="trainer_card")
@@ -124,11 +145,11 @@ class TrainerCard(Base):
 class Deck(Base):
     __tablename__ = "decks"
 
-    deck_id = Column(UUID(binary=False), primary_key=True, default=uuid.uuid4)
+    deck_id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     name = Column(String(255), nullable=False)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
-    owner_id = Column(UUID(binary=False), nullable=False)
+    owner_id = Column(GUID(), nullable=False)
     description = Column(String(500))
     is_active = Column(Boolean, nullable=False, default=True)
 
@@ -138,8 +159,8 @@ class Deck(Base):
 class DeckCard(Base):
     __tablename__ = "deck_cards"
 
-    deck_id = Column(UUID(binary=False), ForeignKey('decks.deck_id'), primary_key=True)
-    card_id = Column(UUID(binary=False), ForeignKey('cards.card_id'), primary_key=True)
+    deck_id = Column(GUID(), ForeignKey('decks.deck_id'), primary_key=True)
+    card_id = Column(GUID(), ForeignKey('cards.card_id'), primary_key=True)
     
     # Relationships
     deck = relationship("Deck", back_populates="deck_cards")
@@ -149,12 +170,12 @@ class DeckCard(Base):
 class GameDetails(Base):
     __tablename__ = "game_details"
 
-    game_details_id = Column(UUID(binary=False), primary_key=True, default=uuid.uuid4)
+    game_details_id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     opponents_points = Column(Integer, nullable=False)
     player_points = Column(Integer, nullable=False)
     date_played = Column(DateTime, nullable=False)
     turns_played = Column(Integer, nullable=False)
-    player_deck_used = Column(UUID(binary=False), ForeignKey('decks.deck_id'))
+    player_deck_used = Column(GUID(), ForeignKey('decks.deck_id'))
     opponent_name = Column(String(255), nullable=False)
     opponent_deck_type = Column(String(255))
     notes = Column(String(1000))
@@ -166,9 +187,9 @@ class GameDetails(Base):
 class GameRecord(Base):
     __tablename__ = "game_records"
 
-    game_record_id = Column(UUID(binary=False), primary_key=True, default=uuid.uuid4)
-    player_id = Column(UUID(binary=False), nullable=False)
-    game_details_ref = Column(UUID(binary=False), ForeignKey('game_details.game_details_id'))
+    game_record_id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    player_id = Column(GUID(), nullable=False)
+    game_details_ref = Column(GUID(), ForeignKey('game_details.game_details_id'))
     outcome = Column(Enum('win', 'loss', 'draw'), nullable=False)
     ranking_change = Column(Integer)
 

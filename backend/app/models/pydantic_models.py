@@ -1,5 +1,5 @@
 from typing import List, Optional, Literal
-from pydantic import BaseModel, Field, validator, root_validator
+from pydantic import BaseModel, Field, model_validator
 from datetime import datetime
 from uuid import UUID
 
@@ -35,22 +35,21 @@ class Card(BaseModel):
                     'Crown', 'Promo']
     image_url: Optional[str]
 
-    @root_validator
-    def validate_set_and_pack_names(cls, values):
-        if 'set_name' in values and 'pack_name' in values:
-            set_name = values['set_name']
-            pack_name = values['pack_name']
+    @model_validator(mode='after')
+    def validate_set_and_pack_names(self) -> 'Card':
+        set_name = self.set_name
+        pack_name = self.pack_name
             
-            # Check if A1a or A1 for set_name
-            is_a1a = 'A1a' in set_name
+        # Check if A1a or A1 for set_name
+        is_a1a = 'A1a' in set_name
             
-            # Check if pack_name matches the set designation
-            if is_a1a and '(A1a)' not in pack_name:
-                raise ValueError('Pack must be from A1a set if set_name is Mythical Island (A1a)')
-            elif not is_a1a and '(A1)' not in pack_name:
-                raise ValueError('Pack must be from A1 set if set_name is Genetic Apex (A1)')
+        # Check if pack_name matches the set designation
+        if is_a1a and '(A1a)' not in pack_name:
+            raise ValueError('Pack must be from A1a set if set_name is Mythical Island (A1a)')
+        elif not is_a1a and '(A1)' not in pack_name:
+            raise ValueError('Pack must be from A1 set if set_name is Genetic Apex (A1)')
         
-        return values
+        return self
 
 class PokemonCard(BaseModel):
     """Model for Pokemon cards"""
@@ -89,17 +88,17 @@ class Deck(BaseModel):
     description: Optional[str]
     is_active: bool
 
-    @validator('cards')
-    def validate_deck_size(cls, cards):
-        if len(cards) != 20:
+    @model_validator(mode='after')
+    def validate_deck_size(self) -> 'Deck':
+        if len(self.cards) != 20:
             raise ValueError('Deck must contain exactly 20 cards')
-        return cards
+        return self
     
-    @validator('updated_at')
-    def validate_updated_at(cls, updated_at, values):
-        if 'created_at' in values and updated_at < values['created_at']:
+    @model_validator(mode='after')
+    def validate_updated_at(self) -> 'Deck':
+        if self.updated_at < self.created_at:
             raise ValueError('updated_at cannot be earlier than created_at')
-        return updated_at
+        return self
 
 # Game Models
 class GameDetails(BaseModel):
@@ -114,12 +113,11 @@ class GameDetails(BaseModel):
     opponent_deck_type: Optional[str]
     notes: Optional[str]
 
-    @root_validator
-    def validate_points(cls, values):
-        if 'opponents_points' in values and 'player_points' in values:
-            if values['opponents_points'] + values['player_points'] > 6:  # Maximum prize cards
-                raise ValueError('Total points cannot exceed 6')
-        return values
+    @model_validator(mode='after')
+    def validate_points(self) -> 'GameDetails':
+        if self.opponents_points + self.player_points > 6:  # Maximum prize cards
+            raise ValueError('Total points cannot exceed 6')
+        return self
 
 class GameRecord(BaseModel):
     """Model for tracking game outcomes"""
@@ -131,5 +129,4 @@ class GameRecord(BaseModel):
 
     class Config:
         """Configuration for model behaviors"""
-        allow_population_by_field_name = True
         arbitrary_types_allowed = True

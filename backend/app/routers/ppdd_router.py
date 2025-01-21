@@ -7,7 +7,7 @@ from datetime import datetime
 import logging
 
 from ..database import get_db
-from ..models.ppdd_models import (
+from ..models.pydantic_models import (
     Card, PokemonCard, TrainerCard, Deck, GameDetails, GameRecord,
     DeckCard, PokemonAbility, SupportAbility
 )
