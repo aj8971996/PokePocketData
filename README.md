@@ -5,6 +5,7 @@ A comprehensive web application for managing and analyzing Pokémon card game da
 
 ## Features (Implemented/Planned)
 - ✅ Comprehensive Pokémon card database integration with MySQL
+- ✅ Google OAuth authentication system
 - 🚧 Interactive data visualization
 - 🚧 Advanced search and filtering capabilities
 - 🚧 Responsive design for mobile and desktop platforms
@@ -15,11 +16,17 @@ A comprehensive web application for managing and analyzing Pokémon card game da
 - 🚧 Deck management and analysis
 
 ## Current Implemented Components
+- Authentication System
+  - Google OAuth 2.0 Integration
+  - JWT Token Management
+  - Protected Routes
 - Database Models
+  - User Management
   - Card Management (Pokémon and Trainer Cards)
   - Deck Management
   - Game Record Tracking
 - API Endpoints for:
+  - Authentication
   - Card Creation and Retrieval
   - Deck Creation and Management
   - Game Record Logging
@@ -40,6 +47,8 @@ A comprehensive web application for managing and analyzing Pokémon card game da
 - MySQL 8.0 (Database)
 - Alembic (Database Migrations)
 - Python-dotenv (Environment Management)
+- JWT Authentication
+- Google OAuth 2.0
 
 ### Development Tools
 - Git (Version Control)
@@ -55,20 +64,18 @@ A comprehensive web application for managing and analyzing Pokémon card game da
 - Git
 - MySQL Server 8.0
 - MySQL Workbench
+- Google Cloud Platform Account (for OAuth)
 
-## Database Setup
+## Setup Instructions
 
-### MySQL Configuration
-1. Install MySQL Server 8.0 and MySQL Workbench
-2. Create a new MySQL user for the application:
-```sql
-CREATE USER 'ppdd_api_user'@'localhost' IDENTIFIED BY 'your_password';
-CREATE DATABASE pokepocketdata;
-GRANT ALL PRIVILEGES ON pokepocketdata.* TO 'ppdd_api_user'@'localhost';
-FLUSH PRIVILEGES;
-```
+### 1. Google OAuth Configuration
+1. Create a project in Google Cloud Console
+2. Enable Google OAuth API
+3. Configure OAuth consent screen
+4. Create OAuth 2.0 credentials (Web application)
+5. Note your Client ID and Client Secret
 
-### Environment Configuration
+### 2. Environment Configuration
 Create a `.env` file in the backend directory:
 ```plaintext
 DB_USER=ppdd_api_user
@@ -76,50 +83,48 @@ DB_PASSWORD=your_password
 DB_HOST=localhost
 DB_PORT=3306
 DB_NAME=pokepocketdata
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+JWT_SECRET=your_secure_jwt_secret
 ```
 
-## Installation
+### 3. Database Setup
+```sql
+CREATE USER 'ppdd_api_user'@'localhost' IDENTIFIED BY 'your_password';
+CREATE DATABASE pokepocketdata;
+GRANT ALL PRIVILEGES ON pokepocketdata.* TO 'ppdd_api_user'@'localhost';
+FLUSH PRIVILEGES;
+```
 
-### 1. Clone the Repository
+### 4. Installation Steps
 ```bash
+# Clone repository
 git clone https://github.com/[your-username]/PokePocketData.git
 cd PokePocketData
-```
 
-### 2. Frontend Setup
-```bash
+# Frontend setup
 cd frontend
 npm install
-```
 
-### 3. Backend Setup
-```bash
+# Backend setup
 cd ../backend
-# Create and activate virtual environment
 python -m venv venv
 source venv/bin/activate  # Unix/macOS
 # On Windows: .\venv\Scripts\activate
-
-# Install dependencies
 pip install -r requirements.txt
-```
 
-### 4. Database Initialization
-```bash
-# Initialize the database and create tables
+# Initialize database and migrations
 python -m app.database.base
-
-# Create and apply database migrations
 alembic revision --autogenerate -m "Initial migration"
 alembic upgrade head
 ```
 
-### 5. Start the Application
+### 5. Starting the Application
 ```bash
-# Start the backend server (from backend directory)
+# Start backend server (from backend directory)
 uvicorn app.main:app --reload
 
-# Start the frontend development server (from frontend directory)
+# Start frontend server (from frontend directory)
 ng serve
 ```
 
@@ -129,17 +134,33 @@ PokePocketData/
 ├── backend/
 │   ├── app/
 │   │   ├── database/           # Database configuration and models
-│   │   ├── models/             # Pydantic models and schemas
-│   │   ├── routers/            # API endpoint definitions
-│   │   ├── services/           # Business logic services
-│   │   └── utils/              # Utility functions
-│   ├── .env                    # Environment configuration
-│   └── requirements.txt        # Python dependencies
-└── frontend/                   # Angular application
+│   │   │   ├── base.py        # Database initialization
+│   │   │   ├── db_config.py   # Database configuration
+│   │   │   └── sql_models.py  # SQLAlchemy models
+│   │   ├── models/            # Pydantic models and schemas
+│   │   ├── routers/           # API endpoint definitions
+│   │   │   ├── auth.py       # Authentication routes
+│   │   │   └── ppdd_router.py # Main application routes
+│   │   ├── services/          # Business logic services
+│   │   └── utils/            # Utility functions
+│   ├── logs/                 # Application logs
+│   ├── .env                  # Environment configuration
+│   └── requirements.txt      # Python dependencies
+└── frontend/                 # Angular application
+    ├── src/
+    │   ├── app/
+    │   │   ├── auth/         # Authentication components
+    │   │   ├── core/         # Core components
+    │   │   └── features/     # Feature modules
+    │   └── assets/
+    │       └── images/       # Static images including logo
     └── [Angular project files]
 ```
 
 ## API Capabilities
+- Authentication:
+  - Google OAuth 2.0 Login
+  - JWT Token Management
 - Full CRUD operations for:
   - Pokémon Cards
   - Trainer Cards
@@ -158,11 +179,14 @@ PokePocketData/
 - ✅ API endpoint implementation
 - ✅ Basic data validation
 - ✅ Game record tracking
+- ✅ Authentication system
 
 ### In Progress
 - 🚧 Frontend implementation
 - 🚧 Advanced data visualization
 - 🚧 Comprehensive test coverage
+
+[Rest of the sections remain the same...]
 
 ## Troubleshooting
 
