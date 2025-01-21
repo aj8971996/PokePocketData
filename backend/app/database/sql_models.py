@@ -195,3 +195,15 @@ class GameRecord(Base):
 
     # Relationships
     game_details = relationship("GameDetails", back_populates="game_record")
+
+class User(Base):
+    __tablename__ = "users"
+    
+    user_id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    email = Column(String(255), unique=True, nullable=False)
+    full_name = Column(String(255), nullable=False)
+    picture = Column(String(255), nullable=True)
+    google_id = Column(String(255), unique=True, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    last_login = Column(DateTime, default=datetime.utcnow, nullable=False)

@@ -1,5 +1,5 @@
 from typing import List, Optional, Literal
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_validator, EmailStr
 from datetime import datetime
 from uuid import UUID
 
@@ -130,3 +130,25 @@ class GameRecord(BaseModel):
     class Config:
         """Configuration for model behaviors"""
         arbitrary_types_allowed = True
+
+
+class UserBase(BaseModel):
+    email: EmailStr
+    full_name: str
+    picture: Optional[str] = None
+
+class UserCreate(UserBase):
+    google_id: str
+
+class UserResponse(UserBase):
+    user_id: UUID
+    is_active: bool
+    created_at: datetime
+    last_login: datetime
+
+    class Config:
+        orm_mode = True
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
