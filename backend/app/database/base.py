@@ -91,7 +91,7 @@ def create_db_engine(url, **kwargs):
     """Create database engine with connection pooling and logging"""
     try:
         # Use the masked URL for logging
-        masked_url = db_config.get_masked_url() if url == db_config.DATABASE_URL else url.replace(db_config.ENCODED_PASSWORD, "********")
+        masked_url = db_config.get_masked_url() if url == db_config.DATABASE_URL else url.replace(db_config.credentials.encoded_password, "********")
         logger.info(f"Creating engine with URL: {masked_url}")
         
         engine = create_engine(

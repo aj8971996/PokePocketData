@@ -3,105 +3,194 @@ import os
 from dotenv import load_dotenv
 from urllib.parse import quote_plus
 import logging
+from typing import Optional, Dict, Any
+from dataclasses import dataclass
+from enum import Enum
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
-def find_dotenv():
-    """Find the .env file by searching up the directory tree"""
-    current_path = Path(__file__).resolve().parent
-    
-    # Search up to 3 levels up for .env file
-    for _ in range(4):
-        logger.info(f"Checking for .env in: {current_path}")
-        env_file = current_path / '.env'
-        if env_file.exists():
-            logger.info(f"Found .env file at: {env_file}")
-            return env_file
-        current_path = current_path.parent
-    
-    # Also check the current working directory
-    cwd = Path.cwd()
-    logger.info(f"Checking current working directory: {cwd}")
-    env_file = cwd / '.env'
-    if env_file.exists():
-        logger.info(f"Found .env file at: {env_file}")
-        return env_file
-    
-    return None
+class DatabaseEnvironment(str, Enum):
+    """Database environment types"""
+    DEVELOPMENT = "development"
+    TESTING = "testing"
+    PRODUCTION = "production"
 
-# Find and load .env file
-env_path = find_dotenv()
-if env_path:
-    logger.info(f"Loading .env from: {env_path}")
-    load_dotenv(dotenv_path=env_path)
-else:
-    logger.warning("No .env file found in parent directories!")
-    logger.info("Searching following paths:")
-    logger.info(f"Current file location: {Path(__file__).resolve()}")
-    logger.info(f"Current working directory: {Path.cwd()}")
+@dataclass
+class DBCredentials:
+    """Database credentials container"""
+    user: str
+    password: str
+    host: str
+    port: str
+    database: str
+    encoded_password: str
+
+    @classmethod
+    def from_env(cls, env_prefix: str = "DB", env_type: DatabaseEnvironment = DatabaseEnvironment.DEVELOPMENT) -> 'DBCredentials':
+        """
+        Create credentials from environment variables
+        
+        Args:
+            env_prefix: Prefix for environment variables (default: "DB")
+            env_type: Type of environment (development/testing/production)
+        
+        Returns:
+            DBCredentials object with database connection information
+        
+        Raises:
+            ValueError: If required environment variables are missing
+        """
+        # Get environment variables with fallbacks
+        user = os.getenv(f"{env_prefix}_USER", "ppdd_api_user")
+        password = os.getenv(f"{env_prefix}_PASSWORD")
+        host = os.getenv(f"{env_prefix}_HOST", "localhost")
+        port = os.getenv(f"{env_prefix}_PORT", "3306")
+        
+        # Get database name with environment-specific suffix for testing
+        base_db_name = os.getenv(f"{env_prefix}_NAME", "pokepocketdata")
+        database = f"{base_db_name}_test" if env_type == DatabaseEnvironment.TESTING else base_db_name
+        
+        if not password:
+            raise ValueError(f"Database password not found in environment variables ({env_prefix}_PASSWORD)")
+        
+        # Clean and encode password
+        password = password.strip('"').strip("'")
+        encoded_password = quote_plus(password)
+        
+        return cls(
+            user=user,
+            password=password,
+            host=host,
+            port=port,
+            database=database,
+            encoded_password=encoded_password
+        )
 
 class DatabaseConfig:
     """Database configuration using environment variables"""
     
-    def __init__(self):
-        # Get and log environment variables
-        self.USER = os.getenv("DB_USER")
-        self.PASSWORD = os.getenv("DB_PASSWORD")
-        self.HOST = os.getenv("DB_HOST")
-        self.PORT = os.getenv("DB_PORT")
-        self.DATABASE = os.getenv("DB_NAME")
+    def __init__(self, env: DatabaseEnvironment = DatabaseEnvironment.DEVELOPMENT):
+        """
+        Initialize database configuration
         
-        # Log retrieved values (excluding password)
-        logger.info("Retrieved configuration values:")
-        logger.info(f"USER: {self.USER}")
-        logger.info(f"HOST: {self.HOST}")
-        logger.info(f"PORT: {self.PORT}")
-        logger.info(f"DATABASE: {self.DATABASE}")
-        logger.info(f"PASSWORD: {'[SET]' if self.PASSWORD else '[NOT SET]'}")
+        Args:
+            env: Database environment type (development/testing/production)
+        """
+        self.env = env
+        self._load_env_file()
+        self.credentials = DBCredentials.from_env(env_type=env)
+        self._setup_urls()
+        self._log_config()
+
+    def _load_env_file(self) -> None:
+        """Load environment variables from .env file"""
+        env_file = self._find_env_file()
+        if env_file:
+            logger.info(f"Loading environment from: {env_file}")
+            load_dotenv(dotenv_path=env_file)
+        else:
+            logger.warning("No .env file found")
+            self._log_search_paths()
+
+    def _find_env_file(self) -> Optional[Path]:
+        """
+        Find the .env file by searching up the directory tree and in common locations
         
-        # Set defaults if values are None
-        self.USER = self.USER or "ppdd_api_user"
-        self.HOST = self.HOST or "localhost"
-        self.PORT = self.PORT or "3306"
-        self.DATABASE = self.DATABASE or "pokepocketdata"
+        Returns:
+            Path to .env file if found, None otherwise
+        """
+        search_paths = [
+            Path(__file__).resolve().parent,  # Current directory
+            Path.cwd(),                       # Working directory
+            Path.home(),                      # Home directory
+        ]
         
-        if not self.PASSWORD:
-            raise ValueError("Database password not found in environment variables")
+        # Search each path and its parents
+        for base_path in search_paths:
+            current_path = base_path
+            for _ in range(4):  # Search up to 3 levels up
+                env_file = current_path / '.env'
+                if env_file.exists():
+                    return env_file
+                current_path = current_path.parent
         
-        # Clean the password (remove quotes) and URL encode it
-        self.PASSWORD = self.PASSWORD.strip('"').strip("'")
-        self.ENCODED_PASSWORD = quote_plus(self.PASSWORD)
+        return None
+
+    def _log_search_paths(self) -> None:
+        """Log paths searched for .env file"""
+        logger.info("Searched for .env in:")
+        logger.info(f"- Current directory: {Path(__file__).resolve().parent}")
+        logger.info(f"- Working directory: {Path.cwd()}")
+        logger.info(f"- Home directory: {Path.home()}")
+
+    def _setup_urls(self) -> None:
+        """Set up database URLs"""
+        base_url = (
+            f"mysql+mysqlconnector://{self.credentials.user}:"
+            f"{self.credentials.encoded_password}@{self.credentials.host}:"
+            f"{self.credentials.port}"
+        )
         
-        # Construct base URL
-        self.BASE_URL = f"mysql+mysqlconnector://{self.USER}:{self.ENCODED_PASSWORD}@{self.HOST}:{self.PORT}"
+        self.BASE_URL = base_url
+        self.DATABASE_URL = f"{base_url}/{self.credentials.database}"
+        self.DATABASE_URL_NO_DB = base_url
+
+    def _log_config(self) -> None:
+        """Log configuration values"""
+        logger.info("Database Configuration:")
+        logger.info(f"Environment: {self.env.value}")
+        logger.info(f"User: {self.credentials.user}")
+        logger.info(f"Host: {self.credentials.host}")
+        logger.info(f"Port: {self.credentials.port}")
+        logger.info(f"Database: {self.credentials.database}")
+        logger.info(f"Password status: {'[SET]' if self.credentials.password else '[NOT SET]'}")
+
+    def get_connection_args(self) -> Dict[str, Any]:
+        """
+        Get connection arguments as a dictionary
         
-        # Construct database URLs
-        self.DATABASE_URL = f"{self.BASE_URL}/{self.DATABASE}"
-        self.DATABASE_URL_NO_DB = self.BASE_URL
-        
-    def get_connection_args(self):
-        """Get connection arguments as a dictionary"""
+        Returns:
+            Dictionary with database connection parameters
+        """
         return {
-            'user': self.USER,
-            'password': self.PASSWORD,  # Use non-encoded password
-            'host': self.HOST,
-            'port': int(self.PORT),
-            'database': self.DATABASE,
+            'user': self.credentials.user,
+            'password': self.credentials.password,
+            'host': self.credentials.host,
+            'port': int(self.credentials.port),
+            'database': self.credentials.database,
         }
     
-    def get_masked_url(self):
-        """Get the database URL with password masked"""
-        return self.DATABASE_URL.replace(self.ENCODED_PASSWORD, "********")
+    def get_database_url(self) -> str:
+        """
+        Get the appropriate database URL based on environment
+        
+        Returns:
+            Database URL string
+        """
+        return self.DATABASE_URL
 
-# Create config instance
+    def get_masked_url(self) -> str:
+        """
+        Get the database URL with password masked
+        
+        Returns:
+            Database URL with password replaced by asterisks
+        """
+        return self.get_database_url().replace(self.credentials.encoded_password, "********")
+
+# Create default config instance
 db_config = DatabaseConfig()
 
 if __name__ == "__main__":
     print("\nDatabase Configuration:")
-    print(f"Host: {db_config.HOST}")
-    print(f"Port: {db_config.PORT}")
-    print(f"Database: {db_config.DATABASE}")
-    print(f"User: {db_config.USER}")
+    print(f"Environment: {db_config.env.value}")
+    print(f"Host: {db_config.credentials.host}")
+    print(f"Port: {db_config.credentials.port}")
+    print(f"Database: {db_config.credentials.database}")
+    print(f"User: {db_config.credentials.user}")
     print(f"URL: {db_config.get_masked_url()}")
