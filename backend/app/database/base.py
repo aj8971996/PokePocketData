@@ -69,6 +69,60 @@ Base = declarative_base(cls=CustomBase)
 # Import our config instance
 from app.database.db_config import db_config
 
+def init_database():
+    """Initialize database if it doesn't exist"""
+    try:
+        logger.info(f"Checking if database {db_config.DATABASE} exists...")
+        
+        # Get engine without database specified
+        engine = db_config._get_engine(with_database=False)
+        
+        with engine.connect() as connection:
+            # Check if database exists
+            result = connection.execute(text(
+                f"SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA "
+                f"WHERE SCHEMA_NAME = '{db_config.DATABASE}'"
+            ))
+            exists = result.fetchone() is not None
+            
+            if not exists:
+                logger.info(f"Creating database {db_config.DATABASE}...")
+                # Create database with proper character set
+                connection.execute(text(
+                    f"CREATE DATABASE {db_config.DATABASE} "
+                    "CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+                ))
+                logger.info(f"Created database: {db_config.DATABASE}")
+            else:
+                logger.info(f"Database {db_config.DATABASE} already exists")
+
+        return True
+    except Exception as e:
+        logger.error(f"Error during database initialization: {str(e)}")
+        return False
+
+def verify_connection():
+    """Verify database connection and privileges"""
+    try:
+        logger.info("Verifying database connection...")
+        engine = db_config._get_engine()
+        with engine.connect() as connection:
+            # Test basic connectivity
+            connection.execute(text("SELECT 1"))
+            
+            # Check necessary privileges
+            result = connection.execute(text("SHOW GRANTS"))
+            privileges = result.fetchall()
+            
+            logger.info("Current privileges:")
+            for privilege in privileges:
+                logger.info(privilege[0])
+            
+            return True
+    except Exception as e:
+        logger.error(f"Database connection verification failed: {str(e)}")
+        return False
+
 def init_tables():
     """Initialize database tables with detailed logging"""
     try:

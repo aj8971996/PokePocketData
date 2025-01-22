@@ -6,12 +6,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.openapi.utils import get_openapi
 import uvicorn
-from typing import Union
+from typing import Dict, Any
 
 # Get the absolute path of the current file's directory
 current_dir = Path(__file__).resolve().parent
-
-# Get the project root directory (two levels up from current file)
 project_root = current_dir.parent.parent
 
 # Add paths to Python path
@@ -19,9 +17,13 @@ sys.path.append(str(project_root))
 sys.path.append(str(project_root / 'backend'))
 
 # Import our modules
-from app.database.base import init_database, verify_connection, init_tables
+from app.database import (
+    db_config,
+    init_tables,
+    DatabaseConfig,
+    DatabaseEnvironment
+)
 from app.routers import ppdd_router, auth
-from app.database.db_config import db_config, DatabaseEnvironment
 
 # Configure logging
 logging.basicConfig(
@@ -66,7 +68,7 @@ app.add_middleware(
 )
 
 # Custom OpenAPI schema
-def custom_openapi():
+def custom_openapi() -> Dict[str, Any]:
     if app.openapi_schema:
         return app.openapi_schema
 
@@ -141,13 +143,14 @@ async def startup_event():
     try:
         logger.info("Starting application initialization...")
         
-        # Initialize database
+        # Create database if it doesn't exist
         logger.info("Initializing database...")
-        init_database()
+        if not db_config.create_database():
+            raise Exception("Failed to create/verify database")
         
         # Verify connection
         logger.info("Verifying database connection...")
-        if not verify_connection():
+        if not db_config.verify_connection():
             raise Exception("Database connection failed")
         
         # Initialize tables
@@ -157,14 +160,14 @@ async def startup_event():
         # Log configuration details
         logger.info(f"Environment: {db_config.env}")
         logger.info(f"Database Host: {db_config.credentials.host}")
-        logger.info(f"Database Name: {db_config.DATABASE}")
+        logger.info(f"Database Name: {db_config.credentials.database}")
         
         logger.info("Application startup complete")
     except Exception as e:
         logger.error(f"Startup failed: {str(e)}")
         raise
 
-@app.get("/")
+@app.get("/", response_model=Dict[str, str])
 async def root():
     """Root endpoint for API status check"""
     return {
@@ -177,7 +180,7 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
-    db_status = verify_connection()
+    db_status = db_config.verify_connection()
     
     response = {
         "status": "healthy" if db_status else "unhealthy",
