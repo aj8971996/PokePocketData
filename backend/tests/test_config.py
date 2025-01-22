@@ -2,173 +2,98 @@ import sys
 from pathlib import Path
 import pytest
 import logging
-from sqlalchemy import create_engine, event
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy_utils import database_exists, create_database, drop_database
-from fastapi.testclient import TestClient
-from typing import Generator, Any
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Add project root to Python path
 project_root = Path(__file__).resolve().parent.parent
 sys.path.append(str(project_root))
 
-# Import our modules
-from app.database.base import Base
 from app.database.db_config import DatabaseConfig, DatabaseEnvironment
-from app.main import app
-from app.database.sql_models import User, Card, PokemonCard, TrainerCard, Deck
 
-# Configure logging for tests
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+def test_env_file_loading():
+    """Test that the .env file can be loaded"""
+    # Create config instance which should load .env
+    db_config = DatabaseConfig()
+    
+    # Check that essential environment variables are loaded
+    assert db_config.credentials.user is not None, "Database user not loaded from .env"
+    assert db_config.credentials.password is not None, "Database password not loaded from .env"
+    assert db_config.credentials.host is not None, "Database host not loaded from .env"
+    assert db_config.credentials.port is not None, "Database port not loaded from .env"
+    assert db_config.credentials.database is not None, "Database name not loaded from .env"
 
-# Create test database config
-test_db_config = DatabaseConfig(env=DatabaseEnvironment.TESTING)
+def test_database_url_construction():
+    """Test that database URLs are constructed correctly"""
+    db_config = DatabaseConfig()
+    
+    # Test base URL format
+    assert db_config.BASE_URL.startswith("mysql+mysqlconnector://"), "Invalid base URL format"
+    
+    # Test that URLs contain necessary components
+    assert db_config.credentials.user in db_config.DATABASE_URL, "User not in database URL"
+    assert db_config.credentials.host in db_config.DATABASE_URL, "Host not in database URL"
+    assert db_config.credentials.port in db_config.DATABASE_URL, "Port not in database URL"
+    assert db_config.credentials.database in db_config.DATABASE_URL, "Database name not in database URL"
 
-def get_test_db_url() -> str:
-    """Get test database URL"""
-    return test_db_config.TEST_DATABASE_URL
-
-@pytest.fixture(scope="session")
-def test_engine():
-    """Create engine for test database with logging"""
-    test_db_url = get_test_db_url()
+def test_database_connection():
+    """Test that we can establish a database connection"""
+    db_config = DatabaseConfig()
     
-    # Create test database if it doesn't exist
-    if not database_exists(test_db_url):
-        create_database(test_db_url)
-    
-    # Create engine with logging
-    engine = create_engine(
-        test_db_url,
-        pool_pre_ping=True,
-        echo=True  # SQL logging for tests
-    )
-    
-    # Add event listeners for debugging
-    @event.listens_for(engine, 'connect')
-    def receive_connect(dbapi_connection, connection_record):
-        logger.info('Test database connection established')
-    
-    @event.listens_for(engine, 'begin')
-    def receive_begin(conn):
-        logger.info('Test transaction begin')
-    
-    # Create all tables
-    logger.info("Creating test database tables...")
-    Base.metadata.create_all(bind=engine)
-    
-    yield engine
-    
-    # Clean up
-    logger.info("Dropping test database...")
-    Base.metadata.drop_all(bind=engine)
-    drop_database(test_db_url)
-
-@pytest.fixture(scope="session")
-def TestingSessionLocal(test_engine):
-    """Create session factory for test database"""
-    SessionLocal = sessionmaker(
-        autocommit=False,
-        autoflush=False,
-        bind=test_engine,
-        expire_on_commit=False  # Useful for testing
-    )
-    return SessionLocal
-
-@pytest.fixture
-def db(TestingSessionLocal) -> Generator[Any, Any, None]:
-    """Get database session for each test"""
-    session = TestingSessionLocal()
     try:
-        yield session
-    finally:
-        session.rollback()
-        session.close()
+        # Use verify_connection method from DatabaseConfig
+        assert db_config.verify_connection() == True, "Database connection failed"
+    except SQLAlchemyError as e:
+        pytest.fail(f"Database connection failed: {str(e)}")
 
-def get_test_db():
-    """Database dependency override for testing"""
+def test_database_initialization():
+    """Test database initialization process"""
     try:
-        db = TestingSessionLocal()
-        yield db
-    finally:
-        db.close()
+        db_config = DatabaseConfig()
+        
+        # Test database creation
+        assert db_config.create_database() == True, "Database creation failed"
+        
+        # Verify connection
+        assert db_config.verify_connection() == True, "Database verification failed"
+        
+    except Exception as e:
+        pytest.fail(f"Database initialization failed: {str(e)}")
 
-@pytest.fixture
-def client(db) -> Generator[TestClient, Any, None]:
-    """Create test client with database dependency override"""
-    from app.database.base import get_db
+def test_test_database_config():
+    """Test that test database configuration works correctly"""
+    test_config = DatabaseConfig(env=DatabaseEnvironment.TESTING)
     
-    # Override the database dependency
-    app.dependency_overrides[get_db] = get_test_db
+    # Verify test database name
+    assert test_config.credentials.database.endswith('_test'), \
+        "Test database name should end with '_test'"
     
-    with TestClient(app) as test_client:
-        yield test_client
+    # Verify test database URL
+    assert test_config.get_database_url() is not None, "Test database URL not configured"
+    assert '_test' in test_config.get_database_url(), "Test database URL should contain '_test'"
+
+def test_connection_pool_settings():
+    """Test that connection pool settings are applied"""
+    db_config = DatabaseConfig()
+    engine = db_config._get_engine()
     
-    # Clean up
-    app.dependency_overrides.clear()
+    # Check pool settings
+    assert engine.pool.size() == 5, "Pool size should be 5"
+    assert engine.pool._max_overflow == 10, "Max overflow should be 10"
+    assert engine.pool._recycle == 3600, "Pool recycle should be 3600 seconds"
 
-# Fixture for creating test user
-@pytest.fixture
-def test_user(db) -> User:
-    """Create a test user"""
-    user = User(
-        email="test@example.com",
-        full_name="Test User",
-        google_id="test123",
-        picture="https://example.com/picture.jpg"
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return user
-
-# Fixture for creating test card
-@pytest.fixture
-def test_pokemon_card(db) -> PokemonCard:
-    """Create a test Pokemon card"""
-    card = Card(
-        name="Test Pokemon",
-        set_name="Genetic Apex (A1)",
-        pack_name="(A1) Charizard",
-        collection_number="TEST-001",
-        rarity="1 Diamond"
-    )
-    db.add(card)
-    db.flush()
+def test_masked_url():
+    """Test that sensitive information is masked in URLs"""
+    db_config = DatabaseConfig()
+    masked_url = db_config.get_masked_url()
     
-    pokemon_card = PokemonCard(
-        card_ref=card.card_id,
-        hp=100,
-        type="Fire",
-        stage="Basic",
-        weakness="Water",
-        retreat_cost=2
-    )
-    db.add(pokemon_card)
-    db.commit()
-    return pokemon_card
+    # Check that password is masked
+    assert "********" in masked_url, "Password should be masked"
+    assert db_config.credentials.password not in masked_url, "Original password should not be in masked URL"
 
-# Fixture for creating test deck
-@pytest.fixture
-def test_deck(db, test_user) -> Deck:
-    """Create a test deck"""
-    deck = Deck(
-        name="Test Deck",
-        owner_id=test_user.user_id,
-        description="Test deck for testing",
-        is_active=True
-    )
-    db.add(deck)
-    db.commit()
-    db.refresh(deck)
-    return deck
-
-# Cleanup fixture
-@pytest.fixture(autouse=True)
-def cleanup_database(db):
-    """Clean up database after each test"""
-    yield
-    for table in reversed(Base.metadata.sorted_tables):
-        db.execute(table.delete())
-    db.commit()
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])
