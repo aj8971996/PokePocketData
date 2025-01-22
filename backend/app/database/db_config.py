@@ -10,6 +10,9 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy_utils import database_exists as sqlalchemy_database_exists
 from sqlalchemy_utils import create_database as sqlalchemy_create_database
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 # Configure logging
 logging.basicConfig(
@@ -210,6 +213,32 @@ class DatabaseConfig:
     def get_masked_url(self) -> str:
         """Get the database URL with password masked"""
         return self.get_database_url().replace(self.credentials.encoded_password, "********")
+    
+    def _get_async_engine(self, with_database: bool = True) -> AsyncEngine:
+        """Get or create async SQLAlchemy engine"""
+        # Convert sync URL to async URL
+        url = (self.DATABASE_URL if with_database else self.DATABASE_URL_NO_DB).replace(
+            'mysql+mysqlconnector://', 
+            'mysql+aiomysql://'
+        )
+        
+        return create_async_engine(
+            url,
+            pool_pre_ping=True,
+            pool_size=5,
+            max_overflow=10,
+            pool_recycle=3600,
+            echo=self.env == DatabaseEnvironment.DEVELOPMENT
+        )
+
+    def get_async_session_maker(self) -> Any:
+        """Create an async session maker"""
+        async_engine = self._get_async_engine()
+        return async_sessionmaker(
+            async_engine, 
+            class_=AsyncSession, 
+            expire_on_commit=False
+        )
 
 # Create default config instance
 db_config = DatabaseConfig()

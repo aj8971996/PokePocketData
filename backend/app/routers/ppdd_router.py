@@ -5,9 +5,11 @@ import logging
 from fastapi import APIRouter, HTTPException, Depends, Query, status
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional, Dict, Any
-from uuid import UUID
+from uuid import UUID, uuid4
 from datetime import datetime
+from sqlalchemy import select
 
 # Get the absolute path of the current file's directory
 current_dir = Path(__file__).resolve().parent
@@ -16,8 +18,10 @@ sys.path.append(str(project_root))
 sys.path.append(str(project_root / 'backend'))
 
 from app.database import get_db
+from app.database.async_session import get_async_db
 from app.database.sql_models import (
     Card as SQLCard,
+    Ability as SQLAbility,
     PokemonCard as SQLPokemonCard,
     TrainerCard as SQLTrainerCard,
     Deck as SQLDeck,
@@ -46,7 +50,7 @@ logger = logging.getLogger(__name__)
 @router.post("/cards/pokemon", response_model=PokemonCardResponse)
 async def create_pokemon_card(
     card_data: PokemonCardCreate,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """Create a new Pokemon card with associated base card"""
     logger.info(f"Attempting to create Pokemon card: {card_data.name}")
@@ -62,7 +66,6 @@ async def create_pokemon_card(
         )
         db.add(new_card)
         await db.flush()
-        logger.debug(f"Base card created with ID: {new_card.card_id}")
 
         # Create Pokemon card
         pokemon_card = SQLPokemonCard(
@@ -75,23 +78,65 @@ async def create_pokemon_card(
             retreat_cost=card_data.retreat_cost
         )
         db.add(pokemon_card)
-        logger.debug("Pokemon card details added")
 
-        # Add abilities if provided
+        # Add abilities 
+        pokemon_abilities = []
         for ability_data in card_data.abilities:
+            # Fetch the ability to verify its existence
+            ability_query = await db.execute(
+                select(SQLAbility).filter(SQLAbility.ability_id == ability_data.ability_ref)
+            )
+            existing_ability = ability_query.scalar_one_or_none()
+            
+            if not existing_ability:
+                raise HTTPException(status_code=400, detail=f"Ability {ability_data.ability_ref} not found")
+
             ability = SQLPokemonAbility(
                 pokemon_card_ref=pokemon_card.card_ref,
                 ability_ref=ability_data.ability_ref,
+                ability_id=str(uuid4()),  # Generate a new UUID for the pokemon ability
                 energy_cost=ability_data.energy_cost,
                 ability_effect=ability_data.ability_effect,
                 damage=ability_data.damage
             )
             db.add(ability)
-        logger.debug(f"Added {len(card_data.abilities)} abilities to the card")
-
+            pokemon_abilities.append(ability)
+            
         await db.commit()
-        logger.info(f"Successfully created Pokemon card: {card_data.name}")
-        return pokemon_card
+
+        # Log debug information
+        logger.debug(f"Created Pokemon card: {new_card.name}")
+        logger.debug(f"Number of abilities: {len(pokemon_abilities)}")
+
+        # Explicitly construct the response
+        response = PokemonCardResponse(
+            card_id=new_card.card_id,
+            name=new_card.name,
+            set_name=new_card.set_name,
+            pack_name=new_card.pack_name,
+            collection_number=new_card.collection_number,
+            rarity=new_card.rarity,
+            image_url=new_card.image_url,
+            hp=pokemon_card.hp,
+            type=pokemon_card.type,
+            stage=pokemon_card.stage,
+            evolves_from=pokemon_card.evolves_from,
+            weakness=pokemon_card.weakness,
+            retreat_cost=pokemon_card.retreat_cost,
+            abilities=[
+                SQLPokemonAbility(
+                    ability_id=ability.ability_id,
+                    ability_ref=ability.ability_ref,
+                    energy_cost=ability.energy_cost,
+                    ability_effect=ability.ability_effect,
+                    damage=ability.damage
+                ) for ability in pokemon_abilities
+            ]
+        )
+
+        logger.debug(f"Response abilities: {response.abilities}")
+        return response
+
     except SQLAlchemyError as e:
         logger.error(f"Database error while creating Pokemon card: {str(e)}")
         await db.rollback()
@@ -99,7 +144,7 @@ async def create_pokemon_card(
     except Exception as e:
         logger.error(f"Unexpected error while creating Pokemon card: {str(e)}")
         await db.rollback()
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/cards/trainer", response_model=TrainerCardResponse)
 async def create_trainer_card(

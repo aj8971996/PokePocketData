@@ -154,15 +154,29 @@ class CardResponse(CardBase, BaseModelConfig):
     """Schema for card responses"""
     card_id: UUID
 
+class PokemonAbilityResponse(BaseModelConfig):
+    """Schema for Pokemon ability responses"""
+    ability_id: UUID
+    ability_ref: UUID
+    energy_cost: dict
+    ability_effect: str
+    damage: Optional[int] = None
+    
 class PokemonCardResponse(CardResponse):
     """Schema for Pokemon card responses"""
     hp: int
-    type: str
-    stage: str
+    type: Literal['Fire', 'Water', 'Grass', 'Metal',
+                  'Electric', 'Colorless', 'Dragon',
+                  'Fighting', 'Psychic', 'Darkness']
+    stage: Literal['Basic', 'Stage 1', 'Stage 2']
     evolves_from: Optional[str]
-    abilities: List[PokemonAbility]
-    weakness: str
+    abilities: List[PokemonAbilityResponse]
+    weakness: Literal['Fire', 'Water', 'Grass', 'Metal',
+                     'Electric', 'Colorless', 'Dragon',
+                     'Fighting', 'Psychic', 'Darkness', 'None']
     retreat_cost: int
+
+
 
 class TrainerCardResponse(CardResponse):
     """Schema for Trainer card responses"""

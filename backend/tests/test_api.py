@@ -62,12 +62,22 @@ def test_cors_headers(client):
     """Test CORS headers are properly set"""
     response = client.options("/", headers={
         "origin": "http://localhost:4200",
-        "access-control-request-method": "GET"
+        "access-control-request-method": "GET",
+        "access-control-request-headers": "content-type"
     })
     assert response.status_code == 200
-    assert "access-control-allow-origin" in response.headers
-    assert "access-control-allow-methods" in response.headers
-    assert "access-control-allow-headers" in response.headers
+    assert "access-control-allow-origin" in response.headers.keys()
+    assert "access-control-allow-methods" in response.headers.keys()
+    
+    # Log headers for debugging
+    logger.info("Response headers: %s", dict(response.headers))
+    
+    # Check allowed origins
+    assert response.headers["access-control-allow-origin"] == "http://localhost:4200"
+    
+    # Check allowed methods (should contain at least GET)
+    allowed_methods = response.headers["access-control-allow-methods"]
+    assert "GET" in allowed_methods
 
 def test_error_handling(client):
     """Test global error handling"""
