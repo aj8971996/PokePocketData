@@ -77,6 +77,14 @@ class PokemonCardCreate(CardBase):
                      'Fighting', 'Psychic', 'Darkness', 'None']
     retreat_cost: int = Field(ge=0)
 
+    @model_validator(mode='after')
+    def validate_evolution(self) -> 'PokemonCardCreate':
+        if self.stage in ['Stage 1', 'Stage 2'] and not self.evolves_from:
+            raise ValueError(f'{self.stage} Pokemon must specify evolves_from')
+        if self.stage == 'Basic' and self.evolves_from:
+            raise ValueError('Basic Pokemon cannot evolve from another Pokemon')
+        return self
+
 class TrainerCardCreate(CardBase):
     """Schema for creating a Trainer card"""
     abilities: List[SupportAbility]

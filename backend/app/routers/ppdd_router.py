@@ -39,7 +39,8 @@ from app.models.pydantic_models import (
     GameDetailsCreate, GameRecordCreate,
     # Response Models
     CardResponse, PokemonCardResponse, TrainerCardResponse,
-    DeckResponse, GameDetailsResponse, GameRecordResponse
+    DeckResponse, GameDetailsResponse, GameRecordResponse,
+    SupportAbility
 )
 
 # Define the router
@@ -145,15 +146,27 @@ async def create_pokemon_card(
         logger.error(f"Unexpected error while creating Pokemon card: {str(e)}")
         await db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
-
+    
 @router.post("/cards/trainer", response_model=TrainerCardResponse)
 async def create_trainer_card(
     card_data: TrainerCardCreate,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """Create a new Trainer card"""
     logger.info(f"Attempting to create Trainer card: {card_data.name}")
     try:
+        existing_card_query = await db.execute(
+            select(SQLCard).filter(
+                SQLCard.collection_number == card_data.collection_number,
+                SQLCard.set_name == card_data.set_name
+            )
+        )
+        if existing_card_query.scalar_one_or_none():
+            raise HTTPException(
+                status_code=400,
+                detail=f"Card with collection number {card_data.collection_number} already exists in set {card_data.set_name}"
+            )
+
         new_card = SQLCard(
             name=card_data.name,
             set_name=card_data.set_name,
@@ -169,21 +182,54 @@ async def create_trainer_card(
             card_ref=new_card.card_id
         )
         db.add(trainer_card)
+        await db.flush()
         
+        support_abilities = []
         for ability_data in card_data.abilities:
-            ability = SQLSupportAbility(
+            ability_query = await db.execute(
+                select(SQLAbility).filter(SQLAbility.ability_id == ability_data.ability_ref)
+            )
+            if not ability_query.scalar_one_or_none():
+                await db.rollback()
+                raise HTTPException(status_code=400, detail=f"Ability {ability_data.ability_ref} not found")
+                
+            support_ability = SQLSupportAbility(
                 trainer_card_ref=trainer_card.card_ref,
                 ability_ref=ability_data.ability_ref,
                 support_type=ability_data.support_type,
                 effect_description=ability_data.effect_description
             )
-            db.add(ability)
+            db.add(support_ability)
+            support_abilities.append(SupportAbility(
+                ability_ref=ability_data.ability_ref,
+                support_type=ability_data.support_type,
+                effect_description=ability_data.effect_description
+            ))
 
         await db.commit()
-        return trainer_card
+        
+        return TrainerCardResponse(
+            card_id=new_card.card_id,
+            name=new_card.name,
+            set_name=new_card.set_name,
+            pack_name=new_card.pack_name,
+            collection_number=new_card.collection_number,
+            rarity=new_card.rarity,
+            image_url=new_card.image_url,
+            abilities=support_abilities
+        )
+        
+    except HTTPException as e:
+        await db.rollback()
+        raise e
     except SQLAlchemyError as e:
         await db.rollback()
+        logger.error(f"Database error while creating trainer card: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Unexpected error while creating trainer card: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/cards/{card_id}", response_model=CardResponse)
 async def get_card(
