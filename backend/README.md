@@ -1,117 +1,177 @@
 # PokéPocketData Backend API
 
-## Project Overview
+## Overview
 
-PokéPocketData is a comprehensive API for managing Pokémon card game data, including card management, deck building, and game record tracking.
+PokéPocketData is a FastAPI-based API for managing Pokémon card game data, featuring card management, deck building, and game statistics tracking.
 
-## Technology Stack
+## Tech Stack
 
-- Framework: FastAPI
-- ORM: SQLAlchemy (Async)
-- Database: MySQL
-- Validation: Pydantic
-- Testing: Pytest
+- **Framework**: FastAPI
+- **Database**: MySQL with async SQLAlchemy
+- **Validation**: Pydantic
+- **Testing**: Pytest
+- **Authentication**: OAuth2 with Google
 
-## Key Features
+## Getting Started
 
-- Pokémon Card Management
-- Trainer Card Creation
-- Deck Building
-- Game Record Tracking
-- Player Statistics
+### Prerequisites
 
-## API Endpoints
+- Python 3.10+
+- MySQL 8.0+
+- Virtual environment tool (venv/conda)
+
+### Installation
+
+1. Clone and setup environment:
+```bash
+git clone https://github.com/yourusername/pokepocketdata.git
+cd pokepocketdata/backend
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+2. Configure environment:
+```bash
+# Create .env file in backend/app/database
+cp .env.example .env
+
+# Configure these variables in .env:
+DB_USER=your_username
+DB_PASSWORD=your_password
+DB_HOST=localhost
+DB_PORT=3306
+DB_NAME=pokepocketdata
+```
+
+3. Initialize database:
+```bash
+python -m app.database.base
+```
+
+4. Start server:
+```bash
+uvicorn app.main:app --reload --port 8000
+```
+
+Access API docs at: http://localhost:8000/api/docs
+
+## Development
+
+### Project Structure
+```
+backend/
+├── app/
+│   ├── database/         # Database models and config
+│   ├── models/          # Pydantic models
+│   ├── routers/         # API endpoints
+│   └── main.py         # Application entry
+├── tests/              # Test suite
+└── requirements.txt    # Dependencies
+```
+
+### Database Migrations
+
+The project uses SQLAlchemy for schema management:
+
+1. Create new tables:
+```python
+# Add models to sql_models.py
+# Run initialization:
+python -m app.database.base
+```
+
+2. Reset database:
+```bash
+python -m app.database.base --reset
+```
+
+### Testing
+
+Run the test suite:
+```bash
+# Run all tests
+pytest
+
+# Run specific test file
+pytest tests/test_integration.py
+
+# With coverage
+pytest --cov=app tests/
+```
+
+## API Documentation
 
 ### Card Management
 
-#### Create Pokémon Card
-- **Method:** POST
-- **Endpoint:** `/api/v1/cards/pokemon`
-- **Request Model:** `PokemonCardCreate`
-- **Response Model:** `PokemonCardResponse`
-
-#### Create Trainer Card
-- **Method:** POST
-- **Endpoint:** `/api/v1/cards/trainer`
-- **Request Model:** `TrainerCardCreate`
-- **Response Model:** `TrainerCardResponse`
-
-#### Get Card Details
-- **Method:** GET
-- **Endpoint:** `/api/v1/cards/{card_id}`
-- **Response Model:** `CardResponse`
-
-#### List Cards
-- **Method:** GET
-- **Endpoint:** `/api/v1/cards/`
-- **Query Parameters:**
-  - `set_name`
-  - `pack_name`
-  - `rarity`
-  - `skip`
-  - `limit`
+Create Pokémon cards with abilities, types, and stats:
+```python
+POST /api/v1/cards/pokemon
+{
+    "name": "Pikachu",
+    "set_name": "Genetic Apex (A1)",
+    "pack_name": "(A1) Pikachu",
+    "collection_number": "001",
+    "rarity": "1 Diamond",
+    "hp": 60,
+    "type": "Electric",
+    "abilities": [...]
+}
+```
 
 ### Deck Management
 
-#### Create Deck
-- **Method:** POST
-- **Endpoint:** `/api/v1/decks/`
-- **Request Model:** `DeckCreate`
-- **Response Model:** `DeckResponse`
-
-#### Get Deck
-- **Method:** GET
-- **Endpoint:** `/api/v1/decks/{deck_id}`
-- **Response Model:** `DeckResponse`
-
-#### Update Deck
-- **Method:** PUT
-- **Endpoint:** `/api/v1/decks/{deck_id}`
-- **Request Model:** `DeckUpdate`
-- **Response Model:** `DeckResponse`
-
-### Game Record Management
-
-#### Create Game Record
-- **Method:** POST
-- **Endpoint:** `/api/v1/games/`
-- **Request Models:** 
-  - `GameDetailsCreate`
-  - `GameRecordCreate`
-- **Response Model:** `GameRecordResponse`
-
-#### Get Player Statistics
-- **Method:** GET
-- **Endpoint:** `/api/v1/games/statistics/{player_id}`
-- **Returns:** Player game statistics
-
-## Validation Rules
-
-### Card Creation
-- Set and pack names must correspond
-- Pokémon cards require specific type and stage
-- Abilities must have valid references
-
-### Deck Creation
-- Must contain exactly 20 cards
-
-### Game Records
-- Total game points cannot exceed 6
-- Supports win/loss/draw outcomes
-
-## Development Setup
-
-1. Clone the repository
-2. Create a virtual environment
-3. Install dependencies: `pip install -r requirements.txt`
-4. Configure database in `.env`
-5. Run database migrations
-6. Start the server: `uvicorn app.main:app --reload`
-
-## Testing
-
-Run tests using pytest:
-```bash
-pytest backend/tests/
+Create 20-card decks with validation:
+```python
+POST /api/v1/decks/
+{
+    "name": "Electric Deck",
+    "owner_id": "uuid",
+    "cards": ["card_uuid1", ...]  # Exactly 20 cards required
+}
 ```
 
+### Game Records
+
+Track game outcomes and player statistics:
+```python
+POST /api/v1/games/
+{
+    "game_data": {
+        "opponents_points": 2,
+        "player_points": 3,
+        "turns_played": 10,
+        ...
+    },
+    "game_record_data": {
+        "player_id": "uuid",
+        "outcome": "win"
+    }
+}
+```
+
+## Deployment
+
+### Docker Setup
+
+1. Build image:
+```bash
+docker build -t pokepocketdata-api .
+```
+
+2. Run container:
+```bash
+docker run -p 8000:8000 \
+  -e DB_HOST=host.docker.internal \
+  -e DB_USER=user \
+  -e DB_PASSWORD=pass \
+  pokepocketdata-api
+```
+
+### Production Considerations
+
+- Use proper connection pooling settings
+- Enable CORS for production domains
+- Configure logging and monitoring
+- Set up health checks
+- Use secure session management

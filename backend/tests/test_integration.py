@@ -5,10 +5,33 @@ from uuid import uuid4
 from datetime import datetime, UTC
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import delete
+import sys
+import os
+from pathlib import Path
+import logging
+from contextlib import asynccontextmanager
+
+# Add project root to Python path
+project_root = Path(__file__).resolve().parent.parent
+sys.path.append(str(project_root))
 
 from app.main import app
 from app.database.async_session import get_async_db
 from app.database.sql_models import *
+from app.database.db_config import db_config
+
+# Configure logging
+logger = logging.getLogger(__name__)
+
+@asynccontextmanager
+async def managed_transaction(session):
+    """Context manager for transaction management"""
+    try:
+        yield
+        await session.commit()
+    except Exception as e:
+        await session.rollback()
+        raise
 
 @pytest_asyncio.fixture(scope="function")
 async def async_client():
@@ -26,22 +49,22 @@ async def async_db_session():
             await session.close()
 
 async def cleanup_test_data(async_db_session):
+    """Clean up test data with detailed error logging"""
     try:
-        await async_db_session.execute(delete(GameRecord))
-        await async_db_session.execute(delete(GameDetails))
-        await async_db_session.execute(delete(DeckCard))
-        await async_db_session.execute(delete(Deck))
-        await async_db_session.execute(delete(PokemonAbility))
-        await async_db_session.execute(delete(SupportAbility))
-        await async_db_session.execute(delete(PokemonCard))
-        await async_db_session.execute(delete(TrainerCard))
-        await async_db_session.execute(delete(Card))
-        await async_db_session.execute(delete(Ability))
-        await async_db_session.execute(delete(User))
-        await async_db_session.commit()
+        async with managed_transaction(async_db_session):
+            for model in [GameRecord, GameDetails, DeckCard, Deck,
+                         PokemonAbility, SupportAbility, PokemonCard,
+                         TrainerCard, Card, Ability, User]:
+                try:
+                    await async_db_session.execute(delete(model))
+                    await async_db_session.flush()
+                    logger.debug(f"Cleaned up {model.__name__}")
+                except Exception as e:
+                    logger.error(f"Error cleaning up {model.__name__}: {str(e)}")
+                    raise
     except Exception as e:
-        await async_db_session.rollback()
-        raise e
+        logger.error(f"Cleanup failed: {str(e)}")
+        raise
 
 @pytest.mark.asyncio
 async def test_complete_user_journey(async_client, async_db_session):
