@@ -1,7 +1,16 @@
 from typing import List, Optional, Literal
 from pydantic import BaseModel, Field, model_validator, EmailStr
 from datetime import datetime
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+import sys
+import os
+from pathlib import Path
 from uuid import UUID
+# Add project root to Python path
+project_root = Path(__file__).resolve().parent.parent
+sys.path.append(str(project_root))
+from app.database.sql_models import Card as SQLCard
 
 # ===============================
 # Base/Common Models
@@ -97,9 +106,20 @@ class DeckCreate(BaseModel):
     cards: List[UUID]
 
     @model_validator(mode='after')
-    def validate_deck_size(self) -> 'DeckCreate':
+    def validate_deck_rules(self) -> 'DeckCreate':
         if len(self.cards) != 20:
             raise ValueError('Deck must contain exactly 20 cards')
+
+        # Get database session and query card names
+        card_names = {}
+        for card_id in self.cards:
+            # Count occurrences by ID first
+            if card_id not in card_names:
+                card_names[card_id] = 1
+            else:
+                card_names[card_id] += 1
+                if card_names[card_id] > 2:
+                    raise ValueError(f'Deck cannot contain more than 2 copies of the same card')
         return self
 
 class GameDetailsCreate(BaseModel):
@@ -122,7 +142,7 @@ class GameDetailsCreate(BaseModel):
 class GameRecordCreate(BaseModel):
     """Schema for creating a game record"""
     player_id: UUID
-    outcome: Literal['win', 'loss', 'draw']
+    outcome: str = Field(description="Must be one of: win, loss, draw", pattern="^(win|loss|draw)$")
     ranking_change: Optional[int] = None
 
 class UserCreate(BaseModelConfig):
@@ -149,9 +169,20 @@ class DeckUpdate(BaseModel):
     cards: Optional[List[UUID]] = None
 
     @model_validator(mode='after')
-    def validate_deck_size(self) -> 'DeckUpdate':
-        if self.cards is not None and len(self.cards) != 20:
-            raise ValueError('Deck must contain exactly 20 cards')
+    def validate_deck_rules(self) -> 'DeckUpdate':
+        if self.cards is not None:
+            if len(self.cards) != 20:
+                raise ValueError('Deck must contain exactly 20 cards')
+
+            # Check for duplicates
+            card_names = {}
+            for card_id in self.cards:
+                if card_id not in card_names:
+                    card_names[card_id] = 1
+                else:
+                    card_names[card_id] += 1
+                    if card_names[card_id] > 2:
+                        raise ValueError(f'Deck cannot contain more than 2 copies of the same card')
         return self
 
 # ===============================

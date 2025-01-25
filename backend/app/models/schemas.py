@@ -2,6 +2,7 @@ from typing import List, Optional, Literal
 from pydantic import BaseModel, Field, validator, root_validator
 from datetime import datetime
 from uuid import UUID
+from datetime import datetime, UTC
 
 # Ability Schemas
 class AbilityBase(BaseModel):
@@ -108,7 +109,7 @@ class GameDetailsCreate(BaseModel):
     """Schema for creating game details"""
     opponents_points: int = Field(ge=0)
     player_points: int = Field(ge=0)
-    date_played: datetime
+    date_played: datetime = Field(default_factory=lambda: datetime.now(UTC))  # Updated to use UTC
     turns_played: int = Field(gt=0)
     player_deck_used: UUID
     opponent_name: str

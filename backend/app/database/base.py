@@ -13,21 +13,16 @@ project_root = current_dir.parent.parent
 sys.path.append(str(project_root))
 sys.path.append(str(project_root / 'backend'))
 
-# Configure logging
 def setup_logging():
     """Configure logging with both file and console handlers"""
-    # Create logs directory if it doesn't exist
     log_dir = project_root / 'logs'
     log_dir.mkdir(exist_ok=True)
     
-    # Create logger
     logger = logging.getLogger(__name__)
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.WARNING)  # Changed from INFO to WARNING
     
-    # Remove any existing handlers
     logger.handlers = []
     
-    # Create formatters
     file_formatter = logging.Formatter(
         '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
@@ -35,21 +30,18 @@ def setup_logging():
         '%(levelname)s - %(message)s'
     )
     
-    # File handler (rotating log files)
     file_handler = RotatingFileHandler(
         log_dir / 'database.log',
-        maxBytes=10485760,  # 10MB
+        maxBytes=10485760,
         backupCount=5
     )
-    file_handler.setLevel(logging.INFO)
+    file_handler.setLevel(logging.WARNING)  # Changed from INFO to WARNING
     file_handler.setFormatter(file_formatter)
     
-    # Console handler
     console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
+    console_handler.setLevel(logging.WARNING)  # Changed from INFO to WARNING
     console_handler.setFormatter(console_formatter)
     
-    # Add handlers to logger
     logger.addHandler(file_handler)
     logger.addHandler(console_handler)
     
@@ -128,42 +120,44 @@ def init_tables():
     try:
         logger.info("Importing SQLAlchemy models...")
         
-        # Import the models module first
         from app.database import sql_models
-        logger.info("Successfully imported sql_models module")
-        
-        # Then import individual models
         from app.database.sql_models import (
-            Card, PokemonCard, TrainerCard, Deck, GameDetails,
+            User, Card, PokemonCard, TrainerCard, Deck, GameDetails,
             GameRecord, DeckCard, Ability, PokemonAbility, SupportAbility,
             PokemonType, SetName, PackName, Rarity, Stage
         )
         
-        # Get the engine from db_config
         engine = db_config._get_engine()
         
-        # Debug: Print all imported models and their metadata
-        for model in [Card, PokemonCard, TrainerCard, Deck, GameDetails,
-                     GameRecord, DeckCard, Ability, PokemonAbility, SupportAbility]:
+        # Add User to models list and order models based on dependencies
+        models = [
+            User,  # User needs to be created first due to foreign key relationships
+            Ability,
+            Card,
+            PokemonCard,
+            TrainerCard,
+            Deck,
+            DeckCard,
+            GameDetails,
+            GameRecord,
+            PokemonAbility,
+            SupportAbility
+        ]
+        
+        for model in models:
             logger.info(f"Checking model {model.__name__}:")
             logger.info(f"  Tablename: {getattr(model, '__tablename__', None)}")
             logger.info(f"  Is it subclass of Base? {issubclass(model, Base)}")
         
-        # Print metadata tables before creation
         logger.info(f"Base metadata tables before: {Base.metadata.tables.keys()}")
-        
-        # Force metadata binding
         Base.metadata.bind = engine
         
-        # Get list of tables before creation
         inspector = inspect(engine)
         tables_before = set(inspector.get_table_names())
         logger.info(f"Tables before creation: {tables_before}")
         
-        # Create tables with explicit schema creation
         logger.info("Creating tables...")
-        for model in [Card, PokemonCard, TrainerCard, Deck, GameDetails,
-                     GameRecord, DeckCard, Ability, PokemonAbility, SupportAbility]:
+        for model in models:
             try:
                 if hasattr(model, '__table__'):
                     model.__table__.create(bind=engine, checkfirst=True)
@@ -173,19 +167,15 @@ def init_tables():
             except Exception as e:
                 logger.error(f"Failed to create table for {model.__name__}: {str(e)}")
         
-        # Verify tables after creation
         inspector = inspect(engine)
         tables_after = set(inspector.get_table_names())
         new_tables = tables_after - tables_before
         
-        # Log table creation results
         if new_tables:
             logger.info(f"Newly created tables: {new_tables}")
-        else:
-            logger.info("No new tables were created")
         
-        # Verify expected tables
         expected_tables = {
+            'users',  # Add users table to expected tables
             'abilities', 'pokemon_abilities', 'support_abilities', 
             'cards', 'pokemon_cards', 'trainer_cards',
             'decks', 'deck_cards', 'game_details', 'game_records'
@@ -197,7 +187,6 @@ def init_tables():
             else:
                 logger.warning(f"Table '{table}' not found in database")
         
-        # Log schema details
         logger.info("Table schemas:")
         for table_name in tables_after:
             columns = inspector.get_columns(table_name)

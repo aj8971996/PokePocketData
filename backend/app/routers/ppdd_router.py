@@ -3,13 +3,13 @@ import sys
 from pathlib import Path
 import logging
 from fastapi import APIRouter, HTTPException, Depends, Query, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional, Dict, Any
 from uuid import UUID, uuid4
 from datetime import datetime
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 # Get the absolute path of the current file's directory
 current_dir = Path(__file__).resolve().parent
@@ -29,7 +29,8 @@ from app.database.sql_models import (
     GameRecord as SQLGameRecord,
     DeckCard as SQLDeckCard,
     PokemonAbility as SQLPokemonAbility,
-    SupportAbility as SQLSupportAbility
+    SupportAbility as SQLSupportAbility,
+    GameOutcome
 )
 from app.models.pydantic_models import (
     # Create/Update Models
@@ -273,15 +274,19 @@ async def list_cards(
         logger.error(f"Database error while fetching cards: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
-# Deck Endpoints
 @router.post("/decks/", response_model=DeckResponse)
 async def create_deck(
     deck_data: DeckCreate,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
-    """Create a new deck"""
-    logger.info(f"Creating new deck: {deck_data.name}")
     try:
+        for card_id in deck_data.cards:
+            result = await db.execute(
+                select(SQLCard).filter(SQLCard.card_id == card_id)
+            )
+            if not result.scalar_one_or_none():
+                raise HTTPException(status_code=400, detail=f"Card {card_id} not found")
+
         new_deck = SQLDeck(
             name=deck_data.name,
             owner_id=deck_data.owner_id,
@@ -291,15 +296,69 @@ async def create_deck(
         db.add(new_deck)
         await db.flush()
 
-        for card_id in deck_data.cards:
-            deck_card = SQLDeckCard(
-                deck_id=new_deck.deck_id,
-                card_id=card_id
-            )
-            db.add(deck_card)
+        deck_cards = [SQLDeckCard(deck_id=new_deck.deck_id, card_id=card_id) 
+                     for card_id in deck_data.cards]
+        db.add_all(deck_cards)
+        
+        # Load cards before committing
+        card_query = await db.execute(
+            select(SQLCard).filter(SQLCard.card_id.in_([dc.card_id for dc in deck_cards]))
+        )
+        cards = card_query.scalars().all()
+        cards_by_id = {str(card.card_id): card for card in cards}
+        
+        await db.commit()
+
+        # Return response using loaded cards
+        return {
+            "deck_id": new_deck.deck_id,
+            "name": new_deck.name,
+            "created_at": new_deck.created_at,
+            "updated_at": new_deck.updated_at,
+            "owner_id": new_deck.owner_id,
+            "description": new_deck.description,
+            "is_active": new_deck.is_active,
+            "cards": [{
+                "card_id": str(dc.card_id),
+                "name": cards_by_id[str(dc.card_id)].name,
+                "set_name": cards_by_id[str(dc.card_id)].set_name.value,
+                "pack_name": cards_by_id[str(dc.card_id)].pack_name.value,
+                "collection_number": cards_by_id[str(dc.card_id)].collection_number,
+                "rarity": cards_by_id[str(dc.card_id)].rarity.value,
+                "image_url": cards_by_id[str(dc.card_id)].image_url
+            } for dc in deck_cards]
+        }
+
+    except SQLAlchemyError as e:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@router.put("/decks/{deck_id}", response_model=DeckResponse)
+async def update_deck(
+    deck_id: UUID,
+    deck_data: DeckUpdate,
+    db: AsyncSession = Depends(get_async_db)
+):
+    """Update a specific deck"""
+    try:
+        result = await db.execute(select(SQLDeck).filter(SQLDeck.deck_id == deck_id))
+        deck = result.scalar_one_or_none()
+        if not deck:
+            raise HTTPException(status_code=404, detail="Deck not found")
+
+        for key, value in deck_data.dict(exclude_unset=True).items():
+            setattr(deck, key, value)
+
+        if deck_data.cards:
+            query = delete(SQLDeckCard).where(SQLDeckCard.deck_id == deck_id)
+            await db.execute(query)
+            for card_id in deck_data.cards:
+                deck_card = SQLDeckCard(deck_id=deck_id, card_id=card_id)
+                db.add(deck_card)
 
         await db.commit()
-        return new_deck
+        return deck
+
     except SQLAlchemyError as e:
         await db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
@@ -307,65 +366,55 @@ async def create_deck(
 @router.get("/decks/{deck_id}", response_model=DeckResponse)
 async def get_deck(
     deck_id: UUID,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """Get a specific deck by ID"""
-    deck = await db.query(SQLDeck).filter(SQLDeck.deck_id == deck_id).first()
+    result = await db.execute(select(SQLDeck).filter(SQLDeck.deck_id == deck_id))
+    deck = result.scalar_one_or_none()
     if not deck:
         raise HTTPException(status_code=404, detail="Deck not found")
     return deck
-
-@router.put("/decks/{deck_id}", response_model=DeckResponse)
-async def update_deck(
-    deck_id: UUID,
-    deck_data: DeckUpdate,
-    db: Session = Depends(get_db)
-):
-    """Update a specific deck"""
-    try:
-        deck = await db.query(SQLDeck).filter(SQLDeck.deck_id == deck_id).first()
-        if not deck:
-            raise HTTPException(status_code=404, detail="Deck not found")
-
-        # Update deck attributes
-        for key, value in deck_data.dict(exclude_unset=True).items():
-            setattr(deck, key, value)
-
-        if deck_data.cards:
-            await db.query(SQLDeckCard).filter(SQLDeckCard.deck_id == deck_id).delete()
-            for card_id in deck_data.cards:
-                deck_card = SQLDeckCard(deck_id=deck_id, card_id=card_id)
-                db.add(deck_card)
-
-        await db.commit()
-        return deck
-    except SQLAlchemyError as e:
-        await db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
 
 # Game Record Endpoints
 @router.post("/games/", response_model=GameRecordResponse)
 async def create_game_record(
     game_data: GameDetailsCreate,
     game_record_data: GameRecordCreate,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
-    """Create a new game record with details"""
     try:
-        game_details = SQLGameDetails(**game_data.dict())
+        game_details = SQLGameDetails(**game_data.model_dump())
         db.add(game_details)
         await db.flush()
+
+        # Convert outcome to uppercase to match GameOutcome enum
+        normalized_outcome = game_record_data.outcome.upper()
+        if normalized_outcome not in GameOutcome.__members__:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Invalid outcome. Must be one of: {', '.join(GameOutcome.__members__.keys())}"
+            )
 
         game_record = SQLGameRecord(
             player_id=game_record_data.player_id,
             game_details_ref=game_details.game_details_id,
-            outcome=game_record_data.outcome,
+            outcome=GameOutcome[normalized_outcome],
             ranking_change=game_record_data.ranking_change
         )
         db.add(game_record)
-        
         await db.commit()
-        return game_record
+        await db.refresh(game_record)
+        await db.refresh(game_details)
+        
+        return {
+            "game_record_id": game_record.game_record_id,
+            "player_id": game_record.player_id,
+            "game_details_ref": game_record.game_details_ref,
+            "outcome": game_record.outcome,
+            "ranking_change": game_record.ranking_change,
+            "game_details": game_details
+        }
+
     except SQLAlchemyError as e:
         await db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
