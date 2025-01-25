@@ -8,7 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional, Dict, Any
 from uuid import UUID, uuid4
-from datetime import datetime
+from datetime import datetime, UTC
 from sqlalchemy import delete, select
 
 # Get the absolute path of the current file's directory
@@ -30,18 +30,19 @@ from app.database.sql_models import (
     DeckCard as SQLDeckCard,
     PokemonAbility as SQLPokemonAbility,
     SupportAbility as SQLSupportAbility,
-    GameOutcome
+    GameOutcome,
+    User as SQLUser
 )
 from app.models.pydantic_models import (
     # Create/Update Models
     CardCreate, CardUpdate, 
     PokemonCardCreate, TrainerCardCreate,
-    DeckCreate, DeckUpdate, 
+    DeckCreate, DeckUpdate, UserCreate,
     GameDetailsCreate, GameRecordCreate,
     # Response Models
     CardResponse, PokemonCardResponse, TrainerCardResponse,
     DeckResponse, GameDetailsResponse, GameRecordResponse,
-    SupportAbility
+    SupportAbility, UserResponse
 )
 
 # Define the router
@@ -463,3 +464,80 @@ async def health_check(db: Session = Depends(get_db)):
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Database connection failed"
         )
+    
+# User Endpoints
+
+@router.post("/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+async def create_user(
+    user_data: UserCreate,
+    db: AsyncSession = Depends(get_async_db)
+):
+    try:
+        result = await db.execute(
+            select(SQLUser).filter(SQLUser.email == user_data.email)
+        )
+        if result.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Email already registered"
+            )
+
+        now = datetime.now(UTC)
+        new_user = SQLUser(
+            user_id=uuid4(),
+            email=user_data.email,
+            full_name=user_data.full_name,
+            google_id=user_data.google_id,
+            picture=user_data.picture,
+            created_at=now,
+            last_login=now
+        )
+        db.add(new_user)
+        await db.commit()
+        await db.refresh(new_user)
+        return new_user
+
+    except SQLAlchemyError as e:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/users/{user_id}", response_model=UserResponse)
+async def get_user(
+    user_id: UUID,
+    db: AsyncSession = Depends(get_async_db)
+):
+    result = await db.execute(
+        select(SQLUser).filter(SQLUser.user_id == user_id)
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+@router.patch("/users/{user_id}", response_model=UserResponse)
+async def update_user(
+    user_id: UUID,
+    user_update: dict,
+    db: AsyncSession = Depends(get_async_db)
+):
+    try:
+        result = await db.execute(
+            select(SQLUser).filter(SQLUser.user_id == user_id)
+        )
+        user = result.scalar_one_or_none()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        allowed_fields = {"full_name", "picture"}
+        update_data = {k: v for k, v in user_update.items() if k in allowed_fields}
+        
+        for key, value in update_data.items():
+            setattr(user, key, value)
+
+        await db.commit()
+        await db.refresh(user)
+        return user
+
+    except SQLAlchemyError as e:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
