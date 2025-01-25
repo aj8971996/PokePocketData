@@ -72,10 +72,20 @@ class SupportType(str, enum.Enum):
     TRAINER = 'Trainer'
     ITEM = 'Item'
 
-class GameOutcome(str, enum.Enum):
-    WIN = 'win'
-    LOSS = 'loss'
-    DRAW = 'draw'
+class GameOutcome(enum.Enum):
+    WIN = 'WIN'
+    LOSS = 'LOSS'
+    DRAW = 'DRAW'
+
+    def __str__(self):
+        return self.value
+
+    @classmethod
+    def __missing__(cls, value):
+        for member in cls:
+            if value in (member.value, member.uc):
+                return member
+        return None
 
 # ===============================
 # Ability Models

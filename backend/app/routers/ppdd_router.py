@@ -388,38 +388,31 @@ async def create_game_record(
         db.add(game_details)
         await db.flush()
 
-        # Convert outcome to uppercase to match GameOutcome enum
-        normalized_outcome = game_record_data.outcome.upper()
-        if normalized_outcome not in GameOutcome.__members__:
-            raise HTTPException(
-                status_code=400, 
-                detail=f"Invalid outcome. Must be one of: {', '.join(GameOutcome.__members__.keys())}"
-            )
+        # Store the original outcome value
+        outcome_value = game_record_data.outcome
 
         game_record = SQLGameRecord(
             player_id=game_record_data.player_id,
             game_details_ref=game_details.game_details_id,
-            outcome=GameOutcome[normalized_outcome],
+            outcome=getattr(GameOutcome, outcome_value),
             ranking_change=game_record_data.ranking_change
         )
         db.add(game_record)
         await db.commit()
-        await db.refresh(game_record)
-        await db.refresh(game_details)
         
+        # Return response without refresh
         return {
             "game_record_id": game_record.game_record_id,
             "player_id": game_record.player_id,
             "game_details_ref": game_record.game_details_ref,
-            "outcome": game_record.outcome,
+            "outcome": outcome_value,
             "ranking_change": game_record.ranking_change,
             "game_details": game_details
         }
-
     except SQLAlchemyError as e:
         await db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
-
+    
 @router.get("/games/statistics/{player_id}")
 async def get_player_statistics(
     player_id: UUID,

@@ -84,18 +84,17 @@ async def cleanup_test_data(async_db_session):
         raise
 @pytest.mark.asyncio
 async def test_complete_user_journey(async_client, async_db_session):
-    """Test complete user journey: Create cards -> Build deck -> Record game"""
     try:
-        # Create test user
-        test_user = User(
-            user_id=uuid4(),
-            email="test@example.com",
-            full_name="Test User",
-            picture="https://example.com/pic.jpg",
-            google_id="test123"
-        )
-        async_db_session.add(test_user)
-        await async_db_session.commit()
+        # Create user through API
+        user_data = {
+            "email": "test@example.com",
+            "full_name": "Test User",
+            "google_id": str(uuid4()),
+            "picture": "https://example.com/pic.jpg"
+        }
+        user_response = await async_client.post("/api/v1/users", json=user_data)
+        assert user_response.status_code == 201
+        user_id = user_response.json()["user_id"]
 
         # Create ability
         ability_id = uuid4()
@@ -151,37 +150,44 @@ async def test_complete_user_journey(async_client, async_db_session):
         # Create deck with unique cards
         deck_data = {
             "name": "Test Deck",
-            "owner_id": str(test_user.user_id),
+            "owner_id": str(user_id),
             "description": "Test Description",
             "cards": pokemon_cards + trainer_cards  # 15 Pokemon + 5 Trainer = 20 unique cards
         }
+        
+        # Create deck with cards
         deck_response = await async_client.post("/api/v1/decks/", json=deck_data)
         assert deck_response.status_code == 200
         deck_id = deck_response.json()["deck_id"]
 
-        # Record game
-        game_details = {
+        # Modified game creation
+        game_data = {
             "opponents_points": 2,
             "player_points": 3,
             "date_played": datetime.now(UTC).isoformat(),
             "turns_played": 10,
             "player_deck_used": str(deck_id),
             "opponent_name": "Test Opponent",
-            "opponent_deck_type": "Aggro"
+            "opponent_deck_type": "control"
         }
-        game_record = {
-            "player_id": str(test_user.user_id),
-            "outcome": "WIN",
+
+        game_record_data = {
+            "player_id": str(user_id),
+            "outcome": "win",
             "ranking_change": 10
         }
+
         game_response = await async_client.post(
             "/api/v1/games/",
-            json={"game_data": game_details, "game_record_data": game_record}
+            json={
+                "game_data": game_data,
+                "game_record_data": game_record_data
+            }
         )
         assert game_response.status_code == 200
 
         # Verify statistics
-        stats_response = await async_client.get(f"/api/v1/games/statistics/{test_user.user_id}")
+        stats_response = await async_client.get(f"/api/v1/games/statistics/{user_id}")
         assert stats_response.status_code == 200
         stats = stats_response.json()
         assert stats["total_games"] == 1
@@ -283,22 +289,28 @@ async def test_game_recording_validation(async_client, async_db_session):
         await async_db_session.commit()
 
         # Test invalid points total
-        game_details = {
+        game_data = {
             "opponents_points": 4,
-            "player_points": 3,  # Total > 6
+            "player_points": 3,
             "date_played": datetime.now(UTC).isoformat(),
             "turns_played": 10,
             "player_deck_used": str(uuid4()),
-            "opponent_name": "Test Opponent"
+            "opponent_name": "Test Opponent",
+            "opponent_deck_type": "control"
         }
-        game_record = {
+
+        game_record_data = {
             "player_id": str(user.user_id),
-            "outcome": "WIN",
+            "outcome": "win",
             "ranking_change": 10
         }
+
         response = await async_client.post(
             "/api/v1/games/",
-            json={"game_data": game_details, "game_record_data": game_record}
+            json={
+                "game_data": game_data,
+                "game_record_data": game_record_data
+            }
         )
         assert response.status_code == 422  # Validation error
 

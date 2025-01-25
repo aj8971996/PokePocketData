@@ -126,7 +126,7 @@ class GameDetailsCreate(BaseModel):
 class GameRecordCreate(BaseModel):
     """Schema for creating a game record"""
     player_id: UUID
-    outcome: Literal['win', 'loss', 'draw']
+    outcome: Literal['WIN', 'LOSS', 'DRAW']
     ranking_change: Optional[int] = None
 
 # Response Schemas

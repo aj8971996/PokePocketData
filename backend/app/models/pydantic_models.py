@@ -142,7 +142,7 @@ class GameDetailsCreate(BaseModel):
 class GameRecordCreate(BaseModel):
     """Schema for creating a game record"""
     player_id: UUID
-    outcome: str = Field(description="Must be one of: win, loss, draw", pattern="^(win|loss|draw)$")
+    outcome: str = Field(description="Must be one of: WIN, LOSS, DRAW", pattern="^(WIN|LOSS|DRAW)$")
     ranking_change: Optional[int] = None
 
 class UserCreate(BaseModelConfig):
@@ -249,7 +249,7 @@ class GameRecordResponse(BaseModelConfig):
     game_record_id: UUID
     player_id: UUID
     game_details_ref: UUID
-    outcome: Literal['win', 'loss', 'draw']
+    outcome: Literal['WIN', 'LOSS', 'DRAW']
     ranking_change: Optional[int]
     game_details: GameDetailsResponse
 
