@@ -60,61 +60,59 @@ async def cleanup_tables(session):
     await session.execute(delete(User))
     await session.commit()
 
-# @pytest.mark.asyncio
-# async def test_create_user(async_client, async_db_session):
-#     try:
-#         response = await async_client.post("/users", json=VALID_USER_DATA)
-#         print(f"Response: {response.status_code} - {response.text}")
-#         assert response.status_code == 201
-#         data = response.json()
-#         assert data["email"] == VALID_USER_DATA["email"]
-#         assert "user_id" in data
-#         assert "created_at" in data
-#         assert "last_login" in data
-#     finally:
-#         await cleanup_tables(async_db_session)
+@pytest.mark.asyncio
+async def test_create_user(async_client, async_db_session):
+    try:
+        response = await async_client.post("/api/v1/users", json=VALID_USER_DATA)
+        assert response.status_code == 201
+        data = response.json()
+        assert data["email"] == VALID_USER_DATA["email"]
+        assert "user_id" in data
+        assert "created_at" in data
+        assert "last_login" in data
+    finally:
+        await cleanup_tables(async_db_session)
 
-# @pytest.mark.asyncio
-# async def test_duplicate_user(async_client, async_db_session):
-#     try:
-#         await async_client.post("/users", json=VALID_USER_DATA)
-#         response = await async_client.post("/users", json=VALID_USER_DATA)
-#         assert response.status_code == 409
-#     finally:
-#         await cleanup_tables(async_db_session)
+@pytest.mark.asyncio
+async def test_duplicate_user(async_client, async_db_session):
+    try:
+        await async_client.post("/api/v1/users", json=VALID_USER_DATA)
+        response = await async_client.post("/api/v1/users", json=VALID_USER_DATA)
+        assert response.status_code == 409
+    finally:
+        await cleanup_tables(async_db_session)
 
-# @pytest.mark.asyncio
-# async def test_invalid_user_data(async_client, async_db_session):
-#     try:
-#         invalid_data = VALID_USER_DATA.copy()
-#         invalid_data.pop("email")
-#         response = await async_client.post("/users", json=invalid_data)
-#         assert response.status_code == 422
-#     finally:
-#         await cleanup_tables(async_db_session)
+@pytest.mark.asyncio
+async def test_invalid_user_data(async_client, async_db_session):
+    try:
+        invalid_data = VALID_USER_DATA.copy()
+        invalid_data.pop("email")
+        response = await async_client.post("/api/v1/users", json=invalid_data)
+        assert response.status_code == 422
+    finally:
+        await cleanup_tables(async_db_session)
 
-# @pytest.mark.asyncio
-# async def test_get_user(async_client, async_db_session):
-#     try:
-#         create_response = await async_client.post("/users", json=VALID_USER_DATA)
-#         user_id = create_response.json()["user_id"]
-        
-#         response = await async_client.get(f"/users/{user_id}")
-#         assert response.status_code == 200
-#         data = response.json()
-#         assert data["email"] == VALID_USER_DATA["email"]
-#     finally:
-#         await cleanup_tables(async_db_session)
+@pytest.mark.asyncio
+async def test_get_user(async_client, async_db_session):
+    try:
+        create_response = await async_client.post("/api/v1/users", json=VALID_USER_DATA)
+        user_id = create_response.json()["user_id"]
+        response = await async_client.get(f"/api/v1/users/{user_id}")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["email"] == VALID_USER_DATA["email"]
+    finally:
+        await cleanup_tables(async_db_session)
 
 @pytest.mark.asyncio
 async def test_update_user(async_client, async_db_session):
     try:
-        create_response = await async_client.post("/users", json=VALID_USER_DATA)
+        create_response = await async_client.post("/api/v1/users", json=VALID_USER_DATA)
         print(f"Create Response Status: {create_response.status_code}")
         print(f"Create Response Body: {create_response.text}")
         user_id = create_response.json()["user_id"]
         update_data = {"full_name": "Updated Name"}
-        response = await async_client.patch(f"/users/{user_id}", json=update_data)
+        response = await async_client.patch(f"/api/v1/users/{user_id}", json=update_data)
         print(f"Response: {response.status_code} - {response.text}")
         assert response.status_code == 200
         data = response.json()

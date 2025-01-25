@@ -23,7 +23,7 @@ from app.database import (
     DatabaseConfig,
     DatabaseEnvironment
 )
-from app.routers import ppdd_router, auth, user
+from app.routers import ppdd_router, auth
 
 # Configure logging
 logging.basicConfig(
@@ -135,12 +135,6 @@ app.include_router(
     ppdd_router.router,
     prefix="/api/v1",
     tags=["pokemon-card-game"]
-)
-# Add this with other include_router calls
-app.include_router(
-    user.router,
-    prefix="/api/v1",
-    tags=["users"]
 )
 
 @app.on_event("startup")
