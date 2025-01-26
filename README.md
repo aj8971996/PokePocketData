@@ -1,225 +1,209 @@
 # PokéPocketData
 
 ## Description
-A comprehensive web application for managing and analyzing Pokémon card game data. This project is developed for personal learning and practice purposes, designed to run locally. It aims to provide users with an intuitive interface to explore, analyze, and manage Pokémon card game information while implementing best practices in full-stack development.
 
-## Features (Implemented/Planned)
-- ✅ Comprehensive Pokémon card database integration with MySQL
-- ✅ Google OAuth authentication system
-- 🚧 Interactive data visualization
-- 🚧 Advanced search and filtering capabilities
-- 🚧 Responsive design for mobile and desktop platforms
-- ✅ Implementation of proper database modeling and relationships
-- ✅ RESTful API with FastAPI
-- ✅ Type-safe data validation using Pydantic
-- ✅ Comprehensive game record tracking
-- 🚧 Deck management and analysis
+PokéPocketData is a comprehensive web application for managing and analyzing Pokémon Trading Card Game data. Built with a FastAPI backend and Angular frontend, this project demonstrates modern full-stack development practices with a focus on type safety, clean architecture, and robust data management. While developed primarily for learning purposes, it implements production-grade features including OAuth authentication, comprehensive API documentation, and thorough testing practices.
 
-## Current Implemented Components
-- Authentication System
-  - Google OAuth 2.0 Integration
-  - JWT Token Management
-  - Protected Routes
-- Database Models
-  - User Management
-  - Card Management (Pokémon and Trainer Cards)
-  - Deck Management
-  - Game Record Tracking
-- API Endpoints for:
-  - Authentication
-  - Card Creation and Retrieval
-  - Deck Creation and Management
-  - Game Record Logging
-  - Player Statistics
+## Core Features
+
+The application currently provides several key capabilities:
+
+**Card Management System**
+- Complete database of Pokémon and Trainer cards
+- Detailed card attributes including abilities, types, and statistics
+- Support for multiple card sets and pack types
+- Advanced validation rules for card creation
+
+**Authentication and Security**
+- Google OAuth 2.0 integration
+- JWT token management
+- Protected routes and endpoints
+- Role-based access control
+
+**Game Management**
+- Comprehensive game record tracking
+- Player statistics and analysis
+- Match history with detailed game data
+- Point tracking and ranking system
+
+**Deck Building**
+- Support for 20-card deck construction
+- Deck validation rules enforcement
+- Card limit verification
+- Deck statistics and analysis
 
 ## Technical Stack
 
-### Frontend
-- Angular (Frontend Framework)
+**Backend Architecture**
+- Python 3.10+
+- FastAPI for API development
+- SQLAlchemy 2.0 with async support
+- MySQL 8.0 for data persistence
+- Pydantic for data validation
+- OAuth2 with Google authentication
+
+**Frontend Framework**
+- Angular 15+
 - TypeScript
-- HTML5/CSS3
+- Angular Material UI components
+- RxJS for reactive programming
 
-### Backend
-- Python 3.8+
-- FastAPI (Web Framework)
-- SQLAlchemy (ORM)
-- Pydantic (Data Validation)
-- MySQL 8.0 (Database)
-- Alembic (Database Migrations)
-- Python-dotenv (Environment Management)
-- JWT Authentication
-- Google OAuth 2.0
+**Development Tools**
+- Git for version control
+- MySQL Workbench for database management
+- Visual Studio Code as recommended IDE
+- Comprehensive test suite using pytest
 
-### Development Tools
-- Git (Version Control)
-- MySQL Workbench
-- Visual Studio Code
+## Getting Started
 
-## Prerequisites
-- Node.js 16+ 
-- npm
-- Angular CLI
-- Python 3.8+ 
-- pip
+### Prerequisites
+
+Before setting up the project, ensure you have:
+- Python 3.10 or higher
+- Node.js 16 or higher
+- MySQL 8.0
+- Google Cloud Platform account
 - Git
-- MySQL Server 8.0
-- MySQL Workbench
-- Google Cloud Platform Account (for OAuth)
 
-## Setup Instructions
+### Initial Setup
 
-### 1. Google OAuth Configuration
-1. Create a project in Google Cloud Console
-2. Enable Google OAuth API
-3. Configure OAuth consent screen
-4. Create OAuth 2.0 credentials (Web application)
-5. Note your Client ID and Client Secret
+1. **Clone the Repository**
+```bash
+git clone https://github.com/[your-username]/PokePocketData.git
+cd PokePocketData
+```
 
-### 2. Environment Configuration
-Create a `.env` file in the backend directory:
+2. **Configure Google OAuth**
+- Create a project in Google Cloud Console
+- Enable Google OAuth API
+- Set up OAuth consent screen
+- Create OAuth 2.0 credentials
+- Note your Client ID and Secret
+
+3. **Configure Environment**
+Create `.env` in the backend/app/database directory:
 ```plaintext
-DB_USER=ppdd_api_user
-DB_PASSWORD=your_password
+DB_USER=your_database_user
+DB_PASSWORD=your_database_password
 DB_HOST=localhost
 DB_PORT=3306
 DB_NAME=pokepocketdata
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
-JWT_SECRET=your_secure_jwt_secret
+GOOGLE_CLIENT_ID=your_client_id
+GOOGLE_CLIENT_SECRET=your_client_secret
+JWT_SECRET=your_jwt_secret
 ```
 
-### 3. Database Setup
+4. **Database Setup**
 ```sql
-CREATE USER 'ppdd_api_user'@'localhost' IDENTIFIED BY 'your_password';
 CREATE DATABASE pokepocketdata;
-GRANT ALL PRIVILEGES ON pokepocketdata.* TO 'ppdd_api_user'@'localhost';
+CREATE USER 'ppdd_user'@'localhost' IDENTIFIED BY 'your_password';
+GRANT ALL PRIVILEGES ON pokepocketdata.* TO 'ppdd_user'@'localhost';
 FLUSH PRIVILEGES;
 ```
 
-### 4. Installation Steps
+5. **Backend Installation**
 ```bash
-# Clone repository
-git clone https://github.com/[your-username]/PokePocketData.git
-cd PokePocketData
-
-# Frontend setup
-cd frontend
-npm install
-
-# Backend setup
-cd ../backend
+cd backend
 python -m venv venv
-source venv/bin/activate  # Unix/macOS
-# On Windows: .\venv\Scripts\activate
+source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-
-# Initialize database and migrations
 python -m app.database.base
-alembic revision --autogenerate -m "Initial migration"
-alembic upgrade head
 ```
 
-### 5. Starting the Application
+6. **Frontend Installation**
 ```bash
-# Start backend server (from backend directory)
-uvicorn app.main:app --reload
+cd frontend
+npm install
+```
 
-# Start frontend server (from frontend directory)
+### Running the Application
+
+**Start Backend Server**
+```bash
+cd backend
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**Start Frontend Development Server**
+```bash
+cd frontend
 ng serve
 ```
 
+Access the application at http://localhost:4200 and the API documentation at http://localhost:8000/api/docs
+
 ## Project Structure
+
 ```
 PokePocketData/
 ├── backend/
 │   ├── app/
-│   │   ├── database/           # Database configuration and models
-│   │   │   ├── base.py        # Database initialization
-│   │   │   ├── db_config.py   # Database configuration
-│   │   │   └── sql_models.py  # SQLAlchemy models
-│   │   ├── models/            # Pydantic models and schemas
-│   │   ├── routers/           # API endpoint definitions
-│   │   │   ├── auth.py       # Authentication routes
-│   │   │   └── ppdd_router.py # Main application routes
-│   │   ├── services/          # Business logic services
-│   │   └── utils/            # Utility functions
-│   ├── logs/                 # Application logs
-│   ├── .env                  # Environment configuration
-│   └── requirements.txt      # Python dependencies
-└── frontend/                 # Angular application
-    ├── src/
-    │   ├── app/
-    │   │   ├── auth/         # Authentication components
-    │   │   ├── core/         # Core components
-    │   │   └── features/     # Feature modules
-    │   └── assets/
-    │       └── images/       # Static images including logo
-    └── [Angular project files]
+│   │   ├── database/         # Database configuration and models
+│   │   ├── models/          # Pydantic models
+│   │   ├── routers/         # API endpoints
+│   │   └── services/        # Business logic
+│   ├── tests/              # Test suite
+│   └── requirements.txt    # Python dependencies
+└── frontend/              # Angular application (currently in development)
 ```
 
-## API Capabilities
-- Authentication:
-  - Google OAuth 2.0 Login
-  - JWT Token Management
-- Full CRUD operations for:
-  - Pokémon Cards
-  - Trainer Cards
-  - Decks
-  - Game Records
-- Advanced filtering and pagination
-- Comprehensive data validation
-- Game statistics tracking
-- Health check endpoint
-
 ## Development Status
-🚧 **Current Status: Active Development**
 
-### Completed
-- ✅ Database modeling
-- ✅ API endpoint implementation
-- ✅ Basic data validation
+### Completed Features
+- ✅ Comprehensive database modeling
+- ✅ Complete API implementation with FastAPI
+- ✅ Google OAuth integration
+- ✅ JWT token management
+- ✅ Card management system
 - ✅ Game record tracking
-- ✅ Authentication system
+- ✅ Deck management
+- ✅ Advanced data validation
+- ✅ Comprehensive test coverage for backend
 
 ### In Progress
 - 🚧 Frontend implementation
-- 🚧 Advanced data visualization
-- 🚧 Comprehensive test coverage
+- 🚧 Interactive data visualization
+- 🚧 Advanced search functionality
+- 🚧 Mobile-responsive design
+- 🚧 Tournament management system
 
-## Troubleshooting
+## API Documentation
 
-### Common Issues
-1. **Database Connection**
-   - Verify MySQL is running
-   - Check `.env` credentials
-   - Ensure `ppdd_api_user` has proper permissions
+The API documentation is available in:
+- Detailed backend README: /backend/README.md
 
-2. **Migration Problems**
-   ```bash
-   # Reset migrations if needed
-   alembic downgrade base
-   alembic revision --autogenerate -m "Reset migration"
-   alembic upgrade head
-   ```
+## Troubleshooting Common Issues
 
-3. **API Debugging**
-   - Check FastAPI logs
-   - Verify request payloads
-   - Ensure database connection
+**Database Connection Problems**
+- Verify MySQL service is running
+- Check database credentials in `.env`
+- Ensure database user has correct permissions
+- Verify database exists and is accessible
 
-## Future Roadmap
-- Implement comprehensive frontend
-- Add authentication system
-- Develop advanced analytics
-- Create user management
-- Implement deck building tools
-- Add tournament tracking features
+**Authentication Issues**
+- Confirm Google OAuth credentials are correct
+- Check JWT secret is properly set
+- Verify redirect URIs are configured correctly
+- Ensure CORS settings match your development environment
+
+**Development Environment**
+- Verify Python and Node.js versions
+- Check all dependencies are installed
+- Ensure virtual environment is activated
+- Verify port availability for both servers
 
 ## Contributing
-This is a personal learning project. While contributions are not currently accepted, feel free to fork and learn from the codebase.
+
+While this is primarily a learning project, developers interested in the codebase can:
+1. Fork the repository
+2. Create a feature branch
+3. Study the implementation
+4. Use it as a reference for similar projects
 
 ## License
-[To be added - include your chosen license]
+
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ---
-**Note:** Project is under active development and documentation will be continuously updated.
+
+**Note:** This project is under active development. Documentation and features are continuously updated. For the most current information, please check the commit history and issue tracker.
