@@ -1,6 +1,19 @@
 {
   "dependencies": {
-    "@angular/material": "^19.1.0",
-    "@auth0/angular-jwt": "^5.2.0"
+    "@angular/cdk": "^19.1.1",
+    "@angular/material": "^19.1.1",
+    "@auth0/angular-jwt": "^5.2.0",
+    "@ngrx/effects": "^19.0.0",
+    "@ngrx/entity": "^19.0.0",
+    "@ngrx/store": "^19.0.0",
+    "@ngrx/store-devtools": "^19.0.0",
+    "date-fns": "^4.1.0"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.21.0",
+    "@typescript-eslint/parser": "^8.21.0",
+    "eslint-config-prettier": "^10.0.1",
+    "eslint-plugin-prettier": "^5.2.3",
+    "prettier": "^3.4.2"
   }
 }
