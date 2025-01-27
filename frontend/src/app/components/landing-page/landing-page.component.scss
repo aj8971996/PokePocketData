@@ -1,0 +1,193 @@
+// landing-page.component.scss
+
+// Variables
+$header-height: 64px;
+$primary-red: #cc0000;
+$hover-red: #990000;
+$background-gray: #f5f5f5;
+
+// Page Container
+.page-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+// Header Styles
+.header {
+  background-color: $primary-red;
+  color: white;
+  height: $header-height;
+  padding: 0 16px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+  .header-content {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .menu-button, .user-button {
+    color: white;
+
+    &:hover {
+      background-color: $hover-red;
+    }
+  }
+
+  .logo-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo {
+    height: 40px;
+    width: auto;
+  }
+
+  .banner {
+    height: 40px;
+    width: auto;
+    
+    @media (max-width: 600px) {
+      display: none; // Hide banner on mobile
+    }
+  }
+}
+
+// Sidenav Styles
+.sidenav-container {
+  flex: 1;
+  margin-top: $header-height;
+}
+
+.sidenav {
+  width: 250px;
+  background-color: white;
+  transform-origin: left;
+  transition: transform 0.3s ease-in-out;
+
+  &.mat-drawer-opened {
+    transform: none;
+  }
+
+  &.mat-drawer-closed {
+    transform: translateX(-100%);
+  }
+  
+  .nav-item {
+    display: flex;
+    align-items: center;
+    padding: 16px;
+    color: rgba(0, 0, 0, 0.87);
+    
+    &:hover {
+      background-color: rgba(0, 0, 0, 0.04);
+    }
+
+    .nav-icon {
+      margin-right: 16px;
+      color: $primary-red;
+    }
+
+    .nav-text {
+      font-size: 16px;
+    }
+  }
+}
+
+// Main Content Styles
+.main-content {
+  background-color: $background-gray;
+  min-height: calc(100vh - #{$header-height});
+}
+
+.content-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+// Welcome Section Styles
+.welcome-section {
+  text-align: center;
+  max-width: 800px;
+  margin: 48px auto;
+  padding: 0 16px;
+
+  .welcome-title {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: rgba(0, 0, 0, 0.87);
+    margin-bottom: 24px;
+  }
+
+  .welcome-text {
+    font-size: 1.125rem;
+    line-height: 1.6;
+    color: rgba(0, 0, 0, 0.6);
+    margin-bottom: 32px;
+  }
+
+  .get-started-button {
+    background-color: $primary-red;
+    color: white;
+    padding: 8px 24px;
+    font-size: 1.125rem;
+
+    &:hover {
+      background-color: $hover-red;
+    }
+  }
+}
+
+// Page Section Styles
+.page-section {
+  text-align: center;
+  padding: 48px 0;
+
+  .page-title {
+    font-size: 2rem;
+    font-weight: bold;
+    color: rgba(0, 0, 0, 0.87);
+    margin-bottom: 16px;
+  }
+
+  .page-text {
+    font-size: 1.125rem;
+    color: rgba(0, 0, 0, 0.6);
+  }
+}
+
+// Responsive Adjustments
+@media (max-width: 600px) {
+  .welcome-section {
+    .welcome-title {
+      font-size: 2rem;
+    }
+
+    .welcome-text {
+      font-size: 1rem;
+    }
+  }
+
+  .page-section {
+    .page-title {
+      font-size: 1.75rem;
+    }
+
+    .page-text {
+      font-size: 1rem;
+    }
+  }
+}

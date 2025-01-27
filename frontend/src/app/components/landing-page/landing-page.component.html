@@ -1,0 +1,71 @@
+<!-- landing-page.component.html -->
+<div class="page-container">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-content">
+        <button mat-icon-button (click)="toggleMenu()" class="menu-button">
+          <mat-icon>menu</mat-icon>
+        </button>
+        
+        <div class="logo-container">
+          <img 
+            src="assets/images/logo.png"
+            alt="PokePocketData Logo"
+            class="logo"
+          />
+          <img 
+            src="assets/images/banner.png"
+            alt="PokePocketData Banner"
+            class="banner"
+          />
+        </div>
+  
+        <button mat-icon-button class="user-button">
+          <mat-icon>account_circle</mat-icon>
+        </button>
+      </div>
+    </header>
+  
+    <!-- Main Content Area with Sidenav -->
+    <mat-sidenav-container class="sidenav-container">
+      <!-- Side Navigation -->
+      <mat-sidenav #sidenav [(opened)]="isMenuOpen" mode="over" class="sidenav" [@slideInOut]>
+        <mat-nav-list>
+          <a mat-list-item *ngFor="let item of navigationItems"
+             [routerLink]="[item.route]"
+             (click)="navigate(item.route, item.title)"
+             class="nav-item">
+            <mat-icon class="nav-icon">{{item.icon}}</mat-icon>
+            <span class="nav-text">{{item.title}}</span>
+          </a>
+        </mat-nav-list>
+      </mat-sidenav>
+  
+      <!-- Main Content -->
+      <mat-sidenav-content class="main-content">
+        <div class="content-container">
+          <ng-container *ngIf="currentPage === 'Home'">
+            <div class="welcome-section">
+              <h1 class="welcome-title">Welcome to PokéPocketData</h1>
+              <p class="welcome-text">
+                Your comprehensive companion for managing and analyzing your Pokémon Trading Card Game experience. 
+                Build decks, track your games, and improve your strategy with detailed statistics.
+              </p>
+              <button mat-raised-button color="primary" 
+                      (click)="navigate('/create-deck', 'Create Deck')"
+                      class="get-started-button">
+                Get Started
+              </button>
+            </div>
+          </ng-container>
+  
+          <ng-container *ngIf="currentPage !== 'Home'">
+            <div class="page-section">
+              <h2 class="page-title">{{currentPage}}</h2>
+              <p class="page-text">Navigation successful! This will be the {{currentPage}} component.</p>
+            </div>
+          </ng-container>
+        </div>
+      </mat-sidenav-content>
+    </mat-sidenav-container>
+  </div>
