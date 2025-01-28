@@ -5,7 +5,7 @@ import { NgIf, NgFor, NgSwitch } from '@angular/common';
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, NgIf, NgFor, NgSwitch],
+  imports: [RouterOutlet],
   template: `
     <router-outlet></router-outlet>
   `

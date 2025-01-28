@@ -1,7 +1,6 @@
-// landing-page.component.ts
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, RouterLink, RouterOutlet } from '@angular/router';
+import { Router, RouterLink, RouterOutlet, RouterModule } from '@angular/router'; // Add RouterModule
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -21,11 +20,12 @@ interface NavigationItem {
   imports: [
     CommonModule,
     RouterLink,
+    RouterModule, // Add RouterModule here
     MatSidenavModule,
     MatIconModule,
     MatButtonModule,
     MatListModule
-]
+  ]
 })
 export class LandingPageComponent {
   isMenuOpen = false;
