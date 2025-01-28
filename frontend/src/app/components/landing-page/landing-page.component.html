@@ -1,3 +1,4 @@
+<!-- frontend/src/app/components/landing-page/landing-page.component.html -->
 <!-- landing-page.component.html -->
 <div class="page-container">
     <!-- Header -->
@@ -9,14 +10,19 @@
         
         <div class="logo-container">
           <img 
-            src="assets/images/logo.png"
+            src="/assets/appIcon.png"
             alt="PokePocketData Logo"
             class="logo"
           />
           <img 
-            src="assets/images/banner.png"
+            src="/assets/appBanner.png"
             alt="PokePocketData Banner"
             class="banner"
+          />
+          <img 
+            src="/assets/appIcon.png"
+            alt="PokePocketData Logo"
+            class="logo"
           />
         </div>
   
@@ -48,8 +54,9 @@
             <div class="welcome-section">
               <h1 class="welcome-title">Welcome to PokéPocketData</h1>
               <p class="welcome-text">
-                Your comprehensive companion for managing and analyzing your Pokémon Trading Card Game experience. 
-                Build decks, track your games, and improve your strategy with detailed statistics.
+                Your comprehensive companion for managing and analyzing your Pokémon TCG Pocket experience. 
+                Build decks, track your games, and improve your strategy with detailed statistics! 
+                This project is still in development.
               </p>
               <button mat-raised-button color="primary" 
                       (click)="navigate('/create-deck', 'Create Deck')"
