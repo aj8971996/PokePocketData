@@ -100,7 +100,8 @@ class Ability(Base):
 class PokemonAbility(Base):
     __tablename__ = 'pokemon_abilities'
 
-    ability_id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    # we now generate a unique linking identifier for each row.
+    card_link_id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     pokemon_card_ref = Column(GUID(), ForeignKey('pokemon_cards.card_ref'))
     ability_ref = Column(GUID(), ForeignKey('abilities.ability_id'))
     energy_cost = Column(JSON, nullable=False)
@@ -113,7 +114,8 @@ class PokemonAbility(Base):
 class SupportAbility(Base):
     __tablename__ = 'support_abilities'
 
-    ability_id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    # Generate a unique linking identifier for each support ability row.
+    ability_link_id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     trainer_card_ref = Column(GUID(), ForeignKey('trainer_cards.card_ref'))
     ability_ref = Column(GUID(), ForeignKey('abilities.ability_id'))
     support_type = Column(Enum(SupportType), nullable=False)
